@@ -59,6 +59,11 @@ full production campaign on its own:
 The deterministic layer did the catching and the proving in each case. The
 agent's job is orchestration and explanation.
 
+[docs/benchmark-plan.md](docs/benchmark-plan.md) lays out how we intend to
+measure all of this reproducibly: regression against the hand-validated
+grids, closure against the published 2002 pion results, seeded
+failure-detection rates, and a multi-model agent-accuracy study.
+
 ## Why the validation layer exists
 
 EXCLURAD's interface has sharp edges that no model should be trusted to
