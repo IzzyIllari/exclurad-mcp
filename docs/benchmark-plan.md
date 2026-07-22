@@ -29,10 +29,15 @@ overwritten; a rerun is a new dated entry.
 through the server with the original chunk grouping preserved, then diff
 δ, σ_Born, and the asymmetries against the recorded values.
 
-**Pass criteria.** Bit equality when the chunk grouping matches the original
-run. Any deviation beyond ~1e-9 requires explanation: the build's static
-locals (`-fno-automatic`) make results depend on point grouping at that
-level, which is why grouping is held fixed.
+**Pass criteria.** Two tiers, scored separately. Bit equality holds only
+when reference and rerun share platform and compiler; the October reference
+is a JLab-farm Linux build, so a macOS rerun scores on the second tier:
+numeric agreement within per-column ceilings (δ and σ_Born within 1e-7,
+asymmetry percentages within 1e-4 to 1e-3), all sitting orders of magnitude
+below the integrator's own `ot = 1e-3` tolerance. Kinematic echo columns
+must be exact. Chunk grouping is always held fixed: the build's static
+locals (`-fno-automatic`) make results depend on point grouping at the
+~1e-9 level.
 
 **Cost.** ~243 s per 10-point chunk single-core on an M-series Mac; a
 50-chunk sample is an overnight run.
