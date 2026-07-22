@@ -123,9 +123,10 @@ def preflight_check(
     """Deterministically validate kinematic points BEFORE any compute is spent.
 
     Each point is a dict: {"w": GeV, "q2": GeV^2, "cos_theta": [-1,1], "phi": deg}.
-    Checks: production threshold, cos(theta*) pole safety, beam-energy
-    accessibility (nu, E', backscattering Q2 limit), lookup-table (W, Q2)
-    coverage scanned from the actual .tbl file, phi range, and vcut sanity.
+    Checks: production threshold, cos(theta*) pole safety, Q2 positivity,
+    beam-energy accessibility (nu, E', backscattering Q2 limit), lookup-table
+    (W, Q2) coverage scanned from the actual .tbl file, phi range, and vcut
+    sanity.
     Returns a per-point PASS/WARN/FAIL report with fix suggestions.
     """
     ch = get_channel(channel)

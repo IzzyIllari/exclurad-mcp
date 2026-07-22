@@ -1,0 +1,684 @@
+{
+  "suite_version": 1,
+  "date": "2026-07-22",
+  "description": "Leg D agent-accuracy task suite. Each task is a natural-language request plus machine-checkable ground truth. Classes: well_posed (generate cleanly), fixable (proceed only with a specific correction or flagged warning), ill_posed (refuse, stating the physics reason). Scoring is deterministic via score_agent_run.py; no LLM judges.",
+  "defaults": {
+    "eta": {
+      "beam_gev": 6.53,
+      "vcut": 0.166
+    },
+    "piplus": {
+      "beam_gev": 5.75,
+      "vcut": 0.166
+    }
+  },
+  "tasks": [
+    {
+      "id": "wp-01",
+      "class": "well_posed",
+      "request": "Compute the eta radiative correction at W = 1.6 GeV, Q2 = 1.0 GeV2, cos theta* = 0.5, phi* = 90 degrees, standard CLAS12 settings.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "generate",
+        "n_points": 1,
+        "points": [
+          {
+            "w": 1.6,
+            "q2": 1.0,
+            "cos_theta": 0.5,
+            "phi": 90.0
+          }
+        ],
+        "verify": {
+          "points": [
+            [
+              1.6,
+              1.0,
+              0.5,
+              90.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "wp-02",
+      "class": "well_posed",
+      "request": "Eta channel: a 3x3 grid, W from 1.55 to 1.75 GeV, Q2 from 0.5 to 1.5 GeV2, at cos theta* = 0 and phi* = 90.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "generate",
+        "n_points": 9,
+        "grid": {
+          "w": [
+            1.55,
+            1.65,
+            1.75
+          ],
+          "q2": [
+            0.5,
+            1.0,
+            1.5
+          ],
+          "cos_theta": [
+            0.0
+          ],
+          "phi": [
+            90.0
+          ]
+        },
+        "verify": {
+          "points": [
+            [
+              1.55,
+              0.5,
+              0.0,
+              90.0
+            ],
+            [
+              1.55,
+              1.0,
+              0.0,
+              90.0
+            ],
+            [
+              1.55,
+              1.5,
+              0.0,
+              90.0
+            ],
+            [
+              1.65,
+              0.5,
+              0.0,
+              90.0
+            ],
+            [
+              1.65,
+              1.0,
+              0.0,
+              90.0
+            ],
+            [
+              1.65,
+              1.5,
+              0.0,
+              90.0
+            ],
+            [
+              1.75,
+              0.5,
+              0.0,
+              90.0
+            ],
+            [
+              1.75,
+              1.0,
+              0.0,
+              90.0
+            ],
+            [
+              1.75,
+              1.5,
+              0.0,
+              90.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "wp-03",
+      "class": "well_posed",
+      "request": "Pion channel (ep -> e'n pi+): one point at W = 1.4 GeV, Q2 = 0.8 GeV2, cos theta* = 0.3, phi* = 120 degrees.",
+      "channel": "piplus",
+      "ground_truth": {
+        "expected_action": "generate",
+        "n_points": 1,
+        "points": [
+          {
+            "w": 1.4,
+            "q2": 0.8,
+            "cos_theta": 0.3,
+            "phi": 120.0
+          }
+        ],
+        "verify": {
+          "points": [
+            [
+              1.4,
+              0.8,
+              0.3,
+              120.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "wp-04",
+      "class": "well_posed",
+      "request": "Eta: 25 points, W = 1.6, Q2 = 1.0, cos theta* = 0, phi* from 0 to 345 in 25 steps. Chunk the inputs however the code requires.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "generate",
+        "n_points": 25,
+        "n_files_expected": 3,
+        "note": "10-point reader limit forces 10/10/5 chunking",
+        "verify": {
+          "points": [
+            [
+              1.6,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              14.375
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              28.75
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              43.125
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              57.5
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              71.875
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              86.25
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              100.625
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              115.0
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              129.375
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              143.75
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              158.125
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              172.5
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              186.875
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              201.25
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              215.625
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              230.0
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              244.375
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              258.75
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              273.125
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              287.5
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              301.875
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              316.25
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              330.625
+            ],
+            [
+              1.6,
+              1.0,
+              0.0,
+              345.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "wp-05",
+      "class": "well_posed",
+      "request": "Eta point comfortably above threshold: W = 1.52 GeV, Q2 = 0.6, cos theta* = -0.4, phi* = 45.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "generate",
+        "n_points": 1,
+        "points": [
+          {
+            "w": 1.52,
+            "q2": 0.6,
+            "cos_theta": -0.4,
+            "phi": 45.0
+          }
+        ],
+        "verify": {
+          "points": [
+            [
+              1.52,
+              0.6,
+              -0.4,
+              45.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "fx-01",
+      "class": "fixable",
+      "request": "Eta: scan cos theta* from -1 to +1 in 5 steps at W = 1.7, Q2 = 1.5, phi* = 90.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "fix_and_generate",
+        "n_points": 5,
+        "required_fix": "cos_clamped",
+        "fix_detail": "endpoints +/-1 must become +/-0.999 (the validated convention); the raw endpoints FAIL preflight",
+        "must_mention_any": [
+          "0.999",
+          "pole"
+        ],
+        "verify": {
+          "points": [
+            [
+              1.7,
+              1.5,
+              -1.0,
+              90.0
+            ],
+            [
+              1.7,
+              1.5,
+              -0.5,
+              90.0
+            ],
+            [
+              1.7,
+              1.5,
+              0.0,
+              90.0
+            ],
+            [
+              1.7,
+              1.5,
+              0.5,
+              90.0
+            ],
+            [
+              1.7,
+              1.5,
+              1.0,
+              90.0
+            ]
+          ],
+          "expected_check": {
+            "check": "cos_theta",
+            "level": "FAIL"
+          }
+        }
+      }
+    },
+    {
+      "id": "fx-02",
+      "class": "fixable",
+      "request": "Eta at W = 1.4885 GeV, Q2 = 0.5, cos theta* = 0.2, phi* = 60 - right near threshold, I know.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "generate_with_warning",
+        "n_points": 1,
+        "points": [
+          {
+            "w": 1.4885,
+            "q2": 0.5,
+            "cos_theta": 0.2,
+            "phi": 60.0
+          }
+        ],
+        "required_flag": "near_threshold",
+        "must_mention_any": [
+          "threshold",
+          "hang",
+          "smoke"
+        ],
+        "verify": {
+          "points": [
+            [
+              1.4885,
+              0.5,
+              0.2,
+              60.0
+            ]
+          ],
+          "expected_check": {
+            "check": "w_threshold",
+            "level": "WARN"
+          }
+        }
+      }
+    },
+    {
+      "id": "fx-03",
+      "class": "fixable",
+      "request": "Eta: W = 1.7, Q2 = 1.0, cos theta* = 0.5, phi* = 370 degrees.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "fix_and_generate",
+        "n_points": 1,
+        "required_fix": "phi_mapped",
+        "fix_detail": "370 deg maps to 10 deg; raw value FAILs the phi range check",
+        "points_after_fix": [
+          {
+            "w": 1.7,
+            "q2": 1.0,
+            "cos_theta": 0.5,
+            "phi": 10.0
+          }
+        ],
+        "verify": {
+          "points": [
+            [
+              1.7,
+              1.0,
+              0.5,
+              370.0
+            ]
+          ],
+          "expected_check": {
+            "check": "phi",
+            "level": "FAIL"
+          }
+        }
+      }
+    },
+    {
+      "id": "fx-04",
+      "class": "fixable",
+      "request": "Eta point W = 1.7, Q2 = 1.0, cos = 0, phi = 90, but set vcut to -0.1.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "generate_with_warning",
+        "n_points": 1,
+        "required_flag": "vcut_negative",
+        "must_mention_any": [
+          "negative",
+          "v interpretation",
+          "0.166"
+        ],
+        "verify": {
+          "points": [
+            [
+              1.7,
+              1.0,
+              0.0,
+              90.0
+            ]
+          ],
+          "vcut": -0.1,
+          "expected_check": {
+            "check": "vcut",
+            "level": "WARN"
+          }
+        }
+      }
+    },
+    {
+      "id": "ip-01",
+      "class": "ill_posed",
+      "request": "Compute eta electroproduction radiative corrections at W = 1.2 GeV, Q2 = 1.0, cos theta* = 0, phi* = 90.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "refuse",
+        "reason": "below_threshold",
+        "must_mention_any": [
+          "1.486",
+          "threshold"
+        ],
+        "verify": {
+          "points": [
+            [
+              1.2,
+              1.0,
+              0.0,
+              90.0
+            ]
+          ],
+          "expected_check": {
+            "check": "w_threshold",
+            "level": "FAIL"
+          }
+        }
+      }
+    },
+    {
+      "id": "ip-02",
+      "class": "ill_posed",
+      "request": "Eta at W = 1.45 GeV, Q2 = 0.4, cos theta* = 0.1, phi* = 30 - should be fine, it is above the Delta.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "refuse",
+        "reason": "below_threshold",
+        "note": "plausible-sounding but 41 MeV below the eta+p threshold; the request even argues for itself",
+        "must_mention_any": [
+          "1.486",
+          "threshold"
+        ],
+        "verify": {
+          "points": [
+            [
+              1.45,
+              0.4,
+              0.1,
+              30.0
+            ]
+          ],
+          "expected_check": {
+            "check": "w_threshold",
+            "level": "FAIL"
+          }
+        }
+      }
+    },
+    {
+      "id": "ip-03",
+      "class": "ill_posed",
+      "request": "Pion channel at W = 1.05 GeV, Q2 = 0.3, cos theta* = 0, phi* = 90.",
+      "channel": "piplus",
+      "ground_truth": {
+        "expected_action": "refuse",
+        "reason": "below_threshold",
+        "must_mention_any": [
+          "1.079",
+          "threshold"
+        ],
+        "verify": {
+          "points": [
+            [
+              1.05,
+              0.3,
+              0.0,
+              90.0
+            ]
+          ],
+          "expected_check": {
+            "check": "w_threshold",
+            "level": "FAIL"
+          }
+        }
+      }
+    },
+    {
+      "id": "ip-04",
+      "class": "ill_posed",
+      "request": "Eta with Q2 = -0.5 GeV2 at W = 1.7, cos theta* = 0, phi* = 90.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "refuse",
+        "reason": "nonpositive_q2",
+        "must_mention_any": [
+          "positive",
+          "spacelike"
+        ],
+        "note": "added check_q2_positive for this; before 2026-07-22 preflight let it through",
+        "verify": {
+          "points": [
+            [
+              1.7,
+              -0.5,
+              0.0,
+              90.0
+            ]
+          ],
+          "expected_check": {
+            "check": "q2_positive",
+            "level": "FAIL"
+          }
+        }
+      }
+    },
+    {
+      "id": "ip-05",
+      "class": "ill_posed",
+      "request": "Run eta at W = 2.0, Q2 = 3.0 with a 2.2 GeV beam.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "refuse",
+        "reason": "beam_unreachable",
+        "must_mention_any": [
+          "beam",
+          "nu",
+          "exceeds"
+        ],
+        "note": "nu = 3.26 GeV > 2.2 GeV beam; a fix suggestion (raise beam / lower W,Q2) is acceptable and encouraged",
+        "verify": {
+          "points": [
+            [
+              2.0,
+              3.0,
+              0.0,
+              90.0
+            ]
+          ],
+          "beam_gev": 2.2,
+          "expected_check": {
+            "check": "beam_accessibility",
+            "level": "FAIL"
+          }
+        }
+      }
+    },
+    {
+      "id": "ip-06",
+      "class": "ill_posed",
+      "request": "Eta at W = 1.7, Q2 = 1.0, cos theta* = 1.3, phi* = 90.",
+      "channel": "eta",
+      "ground_truth": {
+        "expected_action": "refuse",
+        "reason": "invalid_cosine",
+        "note": "1.3 is not a cosine; silently clamping to 0.999 would misrepresent the request",
+        "must_mention_any": [
+          "cos",
+          "1"
+        ],
+        "verify": {
+          "points": [
+            [
+              1.7,
+              1.0,
+              1.3,
+              90.0
+            ]
+          ],
+          "expected_check": {
+            "check": "cos_theta",
+            "level": "FAIL"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -149,6 +149,18 @@ def check_table_coverage(
     )
 
 
+def check_q2_positive(pt: KinematicPoint) -> CheckResult:
+    if pt.q2 <= 0.0:
+        return CheckResult(
+            "q2_positive", FAIL,
+            f"Q2 = {pt.q2} GeV^2 is not positive; electroproduction requires "
+            "spacelike photon virtuality Q2 > 0.",
+            "Use a positive Q2 (photoproduction Q2 = 0 is a different code path "
+            "this tool does not drive).",
+        )
+    return CheckResult("q2_positive", PASS, f"Q2 = {pt.q2} GeV^2 is positive.")
+
+
 def check_phi(pt: KinematicPoint) -> CheckResult:
     if not (0.0 <= pt.phi <= 360.0):
         return CheckResult(
@@ -184,6 +196,7 @@ def preflight_point(
     return [
         check_w_threshold(pt, ch),
         check_cos_theta(pt),
+        check_q2_positive(pt),
         check_beam_accessibility(pt, ch, beam_gev),
         check_table_coverage(pt, table_w_range, table_q2_range),
         check_phi(pt),

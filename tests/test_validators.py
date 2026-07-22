@@ -48,6 +48,23 @@ class TestCosTheta:
         assert check_cos_theta(pt(cos=-0.999)).level == PASS
 
 
+class TestQ2Positive:
+    def test_negative_q2_fails(self):
+        from exclurad_mcp.validators import check_q2_positive
+        assert check_q2_positive(pt(q2=-0.5)).level == FAIL
+
+    def test_zero_q2_fails(self):
+        from exclurad_mcp.validators import check_q2_positive
+        assert check_q2_positive(pt(q2=0.0)).level == FAIL
+
+    def test_negative_q2_fails_whole_preflight(self):
+        # regression: before this check, a negative-Q2 request with no table
+        # configured got only the table-coverage WARN — every other gate
+        # passed (beam accessibility only bounds Q2 from above)
+        report = preflight([pt(q2=-0.5)], ETA, beam_gev=6.53, vcut=0.166)
+        assert report["verdict"] == FAIL
+
+
 class TestBeamAccessibility:
     def test_unreachable_kinematics_fail(self):
         # nu for W=3.5, Q2=8 at a proton target far exceeds a 2 GeV beam
