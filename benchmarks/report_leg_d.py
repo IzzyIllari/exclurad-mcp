@@ -99,6 +99,7 @@ def load_rows(run: Path, models: list[str], conditions: list[str]) -> list[dict]
                             outcome = {"action": "<invalid json>"}
                     bypass = scan_bypass(d / "transcript.jsonl")
                     rows.append({
+                        "harness": res.get("harness", "claude"),
                         "model": m, "condition": c, "rep": rep, "task": t["id"],
                         "class": t["class"], "passed": int(t["passed"]),
                         "problems": "; ".join(t["problems"]),

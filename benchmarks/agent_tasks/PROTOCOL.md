@@ -204,3 +204,34 @@ is called out in the report's per-task table.
   'v' interpretation; default 0.166") in the flag text and only a
   summary in `explanation`. The reason was stated in the outcome; where
   in the outcome is not a physics criterion.
+
+## Harnesses (added 2026-09-08 for the cross-vendor study)
+
+The agent loop is a treatment variable too, so every result directory
+records `harness` in `provenance.json` and every conversation records it
+in `result.json`. Rows from different harnesses are never pooled; the
+report shows them side by side.
+
+| harness | command | shell off | file tools confined to cwd | step cap | cost recorded | run_exclurad removable |
+|---|---|---|---|---|---|---|
+| `claude` (Claude Code) | `claude -p --restricted …` | yes | yes | `--max-turns` | yes (list price) | yes |
+| `opencode` (OpenCode) | `opencode run --format json --pure --agent legd` with a per-conversation `opencode.json` | yes (`tools.bash=false`, `permission.bash=deny`) | yes (`permission.external_directory=deny`) | `agent.legd.maxSteps` | yes (from the provider's declared price table) | yes (`tools.exclurad_run_exclurad=false`; to be confirmed by a probe conversation) |
+| `codex` (Codex CLI) | `codex exec --json --sandbox workspace-write --ignore-user-config -c max_turns=N` | **no** (shell stays; writes confined to cwd) | writes yes, reads no | `max_turns` | no (tokens only) | **no** |
+
+OpenCode is the primary harness for the cross-vendor comparison because it
+is the only one of the three that reaches models from several vendors
+through one route (the LANL gateway) *and* enforces the protocol's tool
+policy. Codex cells are a labelled replication with two deviations
+(shell available; `run_exclurad` reachable), and its baseline framing
+sentence says "Do not build or run the code; produce input files and
+outcome.json only" instead of denying that a shell exists. The condition
+framing is delivered through OpenCode's `instructions` file
+(`LEGD_CONDITION.md`) and Codex's `AGENTS.md`; the user turn is identical
+everywhere.
+
+Before any scored OpenCode or Codex run, a probe conversation on the run
+machine must confirm: the advertised tool list under the `legd` agent
+(no bash, no edit/apply_patch, `exclurad_run_exclurad` absent or denied),
+that the MCP server connects, that a write outside the working directory
+is refused, and whether any global instructions file (`AGENTS.md`) is
+loaded. Record the probe transcript beside `provenance.json`.
