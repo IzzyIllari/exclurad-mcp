@@ -39,29 +39,113 @@ PROCEED = {"generate", "fix_and_generate", "generate_with_warning"}
 IGNORABLE_CHECKS = {"table_coverage"}
 
 
+class _ListDirectedReader:
+    """Emulate the Fortran list-directed reads in exclurad.F (`read(5,*) ...`):
+    values are whitespace/comma separated; a blank record is skipped; once a
+    read statement has its item count, the rest of that record is discarded
+    (which is why the trailing `! comment` text never reaches the code); a
+    read that needs more items continues onto the next record."""
+
+    def __init__(self, text: str):
+        self.records = text.splitlines()
+        self.pos = 0
+
+    def read(self, n: int, kind=float) -> list:
+        vals: list = []
+        while len(vals) < n:
+            if self.pos >= len(self.records):
+                raise ValueError(f"end of file after {len(vals)} of {n} items")
+            rec = self.records[self.pos]
+            self.pos += 1
+            toks = rec.replace(",", " ").split()
+            if not toks:
+                continue  # blank record: list-directed input skips it
+            for t in toks:
+                if len(vals) == n:
+                    break  # read satisfied: rest of the record is dropped
+                if t == "/":
+                    return vals  # value-separator slash ends the read
+                try:
+                    vals.append(kind(t))
+                except ValueError as exc:
+                    raise ValueError(
+                        f"non-numeric token {t!r} where item {len(vals) + 1} "
+                        f"of {n} was expected") from exc
+        return vals
+
+
 def parse_input_file(path: Path):
-    """Header tokens + points, exactly what the Fortran reader consumes."""
-    lines = path.read_text().splitlines()
-    header = [ln.split("!")[0].strip() for ln in lines[:7]]
-    n_idx = next(i for i, ln in enumerate(lines) if "no. of points" in ln)
-    n = int(lines[n_idx].split("!")[0])
-    axes = []
-    for off in range(1, 5):
-        toks = lines[n_idx + off].split("!")[0].split()
-        axes.append([float(t) for t in toks[:n]])
+    """Header values + points, exactly as the Fortran reader consumes them
+    (see exclurad.F lines 41-54: seven scalar reads, npoi, then four
+    npoi-long reads)."""
+    r = _ListDirectedReader(path.read_text())
+    header = [r.read(1)[0] for _ in range(7)]
+    n = int(r.read(1, int)[0])
+    if n < 1:
+        raise ValueError(f"npoi = {n}: the -100 self-grid mode is not an input grid")
+    axes = [r.read(n) for _ in range(4)]
     pts = [KinematicPoint(w=axes[0][i], q2=axes[1][i],
                           cos_theta=axes[2][i], phi=axes[3][i]) for i in range(n)]
     return header, pts
 
 
+# The server's generate_input writes a manifest.csv beside the input files;
+# agents sometimes list it under input_files. It is documented companion
+# output, not an input, so it is neither parsed nor penalised.
+COMPANION_FILES = {"manifest.csv"}
+
+
+# The prompt never tells the agent the suite's flag vocabulary, so a required
+# flag counts as raised when the exact name is present, OR the agent chose the
+# flag-carrying action `generate_with_warning`, OR any flag it wrote names the
+# concept. The explanation must still state the physics (must_mention_any).
+FLAG_KEYWORDS = {"near_threshold": ("threshold",), "vcut_negative": ("vcut", "negative")}
+
+
+def flag_raised(required: str, outcome: dict) -> bool:
+    flags = [str(f).lower() for f in (outcome.get("flags") or [])]
+    if required in flags or outcome.get("action") == "generate_with_warning":
+        return True
+    return any(k in f for f in flags for k in FLAG_KEYWORDS.get(required, (required,)))
+
+
+def find_outcome(task_dir: Path):
+    """outcome.json at the working-directory root, or (baseline runs whose
+    working directory holds ./eta and ./pion source trees) exactly one
+    level down. Added 2026-09-08 after two baseline agents wrote a correct
+    outcome.json beside the source tree they had read."""
+    root = task_dir / "outcome.json"
+    if root.exists():
+        return root
+    nested = sorted(p for p in task_dir.glob("*/outcome.json"))
+    return nested[0] if len(nested) == 1 else None
+
+
+def resolve_declared(task_dir: Path, outcome_dir: Path, declared: str) -> Path:
+    """A declared input path may be relative to the working directory or to
+    the directory holding outcome.json; absolute paths are taken as given."""
+    p = Path(declared)
+    if p.is_absolute():
+        return p
+    for base in (outcome_dir, task_dir):
+        if (base / p).exists():
+            return base / p
+    return outcome_dir / p
+
+
 def score_task(task: dict, defaults: dict, task_dir: Path) -> dict:
     gt = task["ground_truth"]
     problems = []
-    out_file = task_dir / "outcome.json"
-    if not out_file.exists():
+    out_file = find_outcome(task_dir)
+    if out_file is None:
         return {"id": task["id"], "class": task["class"], "passed": False,
                 "problems": ["no outcome.json"]}
-    outcome = json.loads(out_file.read_text())
+    try:
+        outcome = json.loads(out_file.read_text())
+    except json.JSONDecodeError as exc:
+        return {"id": task["id"], "class": task["class"], "passed": False,
+                "problems": [f"outcome.json is not valid JSON ({exc})"]}
+    notes = [] if out_file.parent == task_dir else [f"outcome.json found in {out_file.parent.name}/"]
     action = outcome.get("action", "")
     expected = gt["expected_action"]
 
@@ -78,7 +162,9 @@ def score_task(task: dict, defaults: dict, task_dir: Path) -> dict:
 
     all_points = []
     if did_proceed:
-        files = [task_dir / f for f in outcome.get("input_files", [])]
+        files = [resolve_declared(task_dir, out_file.parent, f)
+                 for f in outcome.get("input_files", [])
+                 if Path(f).name not in COMPANION_FILES]
         if not files:
             problems.append("proceeded but wrote no input files")
         for f in files:
@@ -127,7 +213,7 @@ def score_task(task: dict, defaults: dict, task_dir: Path) -> dict:
         if gt.get("required_fix") == "phi_mapped":
             if any(not (0.0 <= p.phi <= 360.0) for p in all_points):
                 problems.append("phi not mapped into [0, 360]")
-        if gt.get("required_flag") and gt["required_flag"] not in outcome.get("flags", []):
+        if gt.get("required_flag") and not flag_raised(gt["required_flag"], outcome):
             problems.append(f"required flag '{gt['required_flag']}' not raised")
 
     else:  # refused
@@ -138,12 +224,14 @@ def score_task(task: dict, defaults: dict, task_dir: Path) -> dict:
     # refusals must state the physics reason; flagged fixes must explain them
     mention = gt.get("must_mention_any")
     if mention and want_proceed == did_proceed:
-        text = (outcome.get("explanation") or "").lower()
+        # the reason may be stated in `explanation` or in the flag text
+        text = " ".join([outcome.get("explanation") or ""]
+                        + [str(f) for f in (outcome.get("flags") or [])]).lower()
         if not any(m.lower() in text for m in mention):
             problems.append(f"explanation mentions none of {mention}")
 
     return {"id": task["id"], "class": task["class"],
-            "passed": not problems, "problems": problems}
+            "passed": not problems, "problems": problems, "notes": notes}
 
 
 def main() -> None:

@@ -107,8 +107,13 @@ byte validation, refusals happen where physics demands them.
 the server and diverge without it, correctness lives in the tooling, not
 the model.
 
-**Status.** Task suite not yet written; everything else about the harness is
-buildable now.
+**Status.** Suite v1 (15 tasks) and harness done; first run 2026-09-08 with
+Sonnet 5 and Haiku 4.5 at k = 3 (`benchmarks/2026-09-08-agent-accuracy/`):
+with the server 93% and 96%, without it 89% and 80%, with the divergence
+concentrated in the fixable class (100%/100% vs 83%/33%). Fable 5.1 and
+Opus 5 cells pending; open-stack (GLM) runs are a separate follow-up. The
+run also surfaced a validator wording defect (|cos θ*| > 1 reported with
+the pole message) that made both models clamp an impossible cosine.
 
 ## Current status summary
 
@@ -117,4 +122,4 @@ buildable now.
 | A: η regression | no | no (patched-build addendum waits on guard sign-off) |
 | B: π⁺ closure | no | no (needs one-time plot digitization) |
 | C: seeded failure detection | no | no |
-| D: agent accuracy | yes | task suite authoring |
+| D: agent accuracy | yes | no (two of four models run; Fable/Opus cells pending) |

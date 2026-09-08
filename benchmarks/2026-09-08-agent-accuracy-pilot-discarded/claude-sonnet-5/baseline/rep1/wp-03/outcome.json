@@ -1,0 +1,10 @@
+{
+  "action": "generate_with_warning",
+  "input_files": ["input_pion_W1.400_Q2_0.800.dat"],
+  "flags": [
+    "model_forced_to_AO",
+    "beam_momentum_assumed_not_specified",
+    "vcut_defaulted_to_zero"
+  ],
+  "explanation": "Generated a 1-point EXCLURAD input for ep -> e'n pi+ at W=1.4 GeV, Q2=0.8 GeV^2, cos(theta*)=0.3, phi*=120 deg (ivec=2, lepton=1). Kinematics are physically valid: W=1.4 GeV is well above the pi+n threshold (m_p+m_pi+ = 1.078 GeV), and x=Q2/(2*M_p*nu) = 0.426 is in (0,1). Two issues were found and handled: (1) This repository's data_file wiring (exclurad.F, mpintp.inc, README) shows it has been repurposed for eta electroproduction -- the pion multipole tables maid98-PPpi.tbl/maid98-PNpi.tbl (model=2) and maid07-NPpi.tbl (model=3, pi+ channel) are not present (confirmed: no .tbl files anywhere in the working tree), so models 2 and 3 cannot be used for this pion point. Model=1 (AO, Burkert-Li unitary isobar/quark model) is fully self-contained in exclurad.F -- all resonance parameters are hardcoded, no external table needed -- and is documented as valid for pion electroproduction, so it was selected instead. (2) The user did not specify a beam momentum, which EXCLURAD needs (bmom) alongside W/Q2/angles. I assumed bmom=5.75 GeV (a kinematically valid, typical JLab/CLAS pion-electroproduction beam energy for this W,Q2 region: E'~4.75 GeV, scattering angle ~9.8 deg) as a placeholder -- please confirm or replace this value before using the result. vcut was set to 0 (no inelasticity cut) since no experiment-specific cut was requested; the 0.166 GeV^2 value seen in this repo's template input.dat is an eta-specific CLAS12 acceptance cut and does not apply here."
+}

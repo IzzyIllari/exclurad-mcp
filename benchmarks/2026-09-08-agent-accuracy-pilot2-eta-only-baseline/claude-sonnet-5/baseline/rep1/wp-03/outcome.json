@@ -1,0 +1,11 @@
+{
+  "action": "refuse",
+  "input_files": [],
+  "flags": [
+    "pion_tables_missing",
+    "no_tbl_data_file_present",
+    "mass_constants_repurposed_for_eta",
+    "docs_contradict_source_ivec_mapping"
+  ],
+  "explanation": "This checkout of exclurad is configured for eta electroproduction (ep -> e'p eta), not the pion channel. Top-level README.md states the pion multipole tables (maid07-NPpi.tbl, maid98-PNpi.tbl, maid98-PPpi.tbl) are no longer included, and no *.tbl hadronic-model file of any kind is present in this directory, so exclurad.F's read_sf_file() call would fail to open its data file regardless of ivec/model choice. More critically, setcon() in exclurad.F (lines 214-215) hardcodes amhad=(0.938272, 0.54786) and amunm=(0.54786, 0.938272) GeV, i.e. proton and eta masses; the neutron mass (0.9396 GeV) and pi+ mass (0.13957 GeV) do not appear anywhere as active kinematic constants in exclurad.F. This means ivec=2 in the current build computes kinematics for a proton + 0.548 GeV recoil system, not e'n pi+, even though examples/README.md incorrectly instructs 'use ivec=2 for pion electroproduction (ep -> e'n pi+)'. Following that documentation would silently mislabel eta-configuration output as a pion result. Since no compiler/shell is available to rebuild the code, and no pi+ multipole table data exists in this tree to supply even if the mass constants were restored, a correct ep -> e'n pi+ point cannot be generated from this repository as configured. Recommend using the original pion-channel EXCLURAD source (JLab RC page, https://www.jlab.org/RC/, or the pion GitHub repo referenced in README.md) for this request; this repo/build should only be used for eta (ep -> e'p eta) points."
+}

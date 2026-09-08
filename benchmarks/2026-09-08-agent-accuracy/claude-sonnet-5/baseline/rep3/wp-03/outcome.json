@@ -1,0 +1,10 @@
+{
+  "action": "generate_with_warning",
+  "input_files": ["input_pion.dat"],
+  "flags": [
+    "beam_momentum_unspecified_defaulted_to_1.645_GeVc",
+    "kinematics_verified_above_pion_threshold_and_within_maid2007_validity",
+    "recoil_neutron_mass_approximated_as_proton_mass_per_code_convention"
+  ],
+  "explanation": "Point is physically valid: W=1.4 GeV is safely above the p+pi+ threshold (W_thr ~= m_p+m_pi+ = 1.078 GeV) and well within the MAID2007 model's fit range, so vmax=W^2-m_p^2+m_pi^2-2*W*m_pi > 0 as required. The requested variables (W, Q2, cos(theta*), phi*) are the pion-channel per-point kinematics used by exclurad.F, but the code also needs an independent beam momentum (bmom) to fix the electron-arm kinematics (photon energy nu = (W^2+Q2-m_p^2)/(2 m_p) = 1.000 GeV is fixed by W,Q2 alone; bmom then sets bmom' = bmom-nu and cos(theta_e) = 1-Q2/(2*bmom*bmom')). The user request did not specify a beam energy, so I used the pion/input.dat template's default of 1.645 GeV/c, which is kinematically consistent here (bmom' = 0.645 GeV > 0, cos(theta_e) = 0.623, valid electron scattering angle ~51.5 deg). If the physicist has a specific experimental beam energy in mind, bmom in input_pion.dat should be edited accordingly before running, since it changes the virtual-photon polarization epsilon and thus the computed cross sections/radiative corrections. Other settings follow the pion-channel defaults: iphy=3 (maid2007), ll=0 (full RC, not leading-log), lepton=1 (electron), ivec=2 (pi+ detected), vcut=0.05 (standard inelasticity cut). Note the code's setcon subroutine approximates the undetected recoil baryon mass as the proton mass (0.938272 GeV) rather than the neutron mass for the pi+ channel; this is an inherent simplification in the upstream JeffersonLab code, not something I altered."
+}

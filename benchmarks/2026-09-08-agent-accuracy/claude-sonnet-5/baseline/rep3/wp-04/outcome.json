@@ -1,0 +1,9 @@
+{
+  "action": "generate_with_warning",
+  "input_files": ["input.dat"],
+  "flags": [
+    "eta/README.md states a 10-point-per-file limit ('Fortran reader limit'), but the actual source (eta/exclurad.F lines 18-54) uses parameter(npoimax=10000) and list-directed read(5,*) statements that freely span multiple input lines, matching eta/examples/README.md's multi-row-layout description. The 10-point figure appears to be stale/incorrect documentation (likely referring to a separate batch-staging convention in scripts/, not an actual reader limit). I generated a single 25-point file rather than chunking into multiple 10-point files, since the code itself does not require chunking here.",
+    "The program hardcodes open(unit=5,file='input.dat',status='old') in exclurad.F, so the run directory must contain a file literally named input.dat (redirection via '< input.dat' works only incidentally); the output file was named accordingly."
+  ],
+  "explanation": "Generated one EXCLURAD input file for eta electroproduction: model=3 (EtaMAID/maid2000), rc_mode=0 (full O(alpha) RC), bmom=6.53 GeV, ivec=1 (recoil proton), vcut=0.166 GeV^2 (CLAS12 default). 25 points at fixed W=1.6 GeV (above the eta threshold of ~1.486 GeV) and Q^2=1.0 GeV^2 (both within the documented grid coverage), cos(theta*)=0 (within +/-0.9), and phi* swept over 25 evenly spaced values from 0 to 345 deg (step 14.375 deg). All kinematics are physically valid, so no points were dropped or corrected. Despite the top-level README's stated 10-point-per-file cap, the actual Fortran reader (verified from source) supports up to 10000 points per call via multi-row free-format reads, so all 25 points fit in the single input.dat without chunking."
+}

@@ -1,0 +1,11 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "eta/eta_W1.60_Q2_1.00_cos0.00_phiscan25.dat"
+  ],
+  "flags": [
+    "readme_10point_limit_incorrect",
+    "single_file_used_instead_of_chunking"
+  ],
+  "explanation": "Kinematics are physically valid for eta electroproduction: W=1.6 GeV is above the p+eta threshold (W_min = m_p + m_eta = 1.486 GeV) and within the EtaMAID-2023 table range (W: 1.4856-6 GeV, Q^2: 0-5 GeV^2, per mpintp.inc NVAR1/NVAR2 grid), Q2=1.0 GeV^2 is within table range, and cos(theta*)=0 is physical. Generated 25 phi* points uniformly spaced from 0 to 345 deg inclusive (step 345/24=14.375 deg), matching the requested count and range exactly, with W, Q2, and cos(theta*) held fixed at the requested values across all 25 points.\n\nOn chunking: the top-level README.md claims a 10-point-per-file 'Fortran reader limit,' and the examples/README.md self-contradicts by both restating that limit and then demonstrating a 50-point single-file run that works fine. I checked the actual source (eta/exclurad.F): the array bound is 'parameter(npoimax=10000)' and the four kinematic arrays are read with plain list-directed reads (read(5,*)(w_input(i),i=1,npoi), etc.), which in Fortran are free-format and whitespace/newline-delimited - they read exactly npoi values regardless of how many lines they span. There is no 10-point limit in the code; the true limit is npoimax=10000. So no chunking into multiple files is actually required for this 25-point request - I wrote a single input file with the phi* values wrapped across multiple rows (matching the multi-row layout the examples/README describes), which the Fortran reader parses correctly in one run. Note: exclurad.F opens the input by hardcoded filename 'input.dat' (not stdin), so this file must be copied/renamed to input.dat in the run directory before executing the built exclurad.exe. Used the eta-channel defaults from the README: model=3 (EtaMAID/maid2000), rc_mode=0 (full O(alpha) corrections), bmom=6.53 GeV (CLAS12), ivec=1 (recoil proton), vcut=0.166 GeV^2 (CLAS12 eta analysis cut)."
+}

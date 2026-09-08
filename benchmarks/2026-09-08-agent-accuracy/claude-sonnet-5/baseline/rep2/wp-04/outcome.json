@@ -1,0 +1,10 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "eta_W1.6_Q2_1.0_cos0_phiscan25.dat"
+  ],
+  "flags": [
+    "documentation_discrepancy_resolved_via_source"
+  ],
+  "explanation": "Request: eta electroproduction, W=1.6 GeV, Q2=1.0 GeV^2, cos(theta*)=0, phi* swept as 25 points evenly spaced (endpoint-inclusive) from 0 to 345 deg (step = 14.375 deg), fixed W/Q2/cos across all 25 points. Kinematics are physically valid: W=1.6 GeV is above the p+eta threshold (938+548=1486 MeV) and inside the tabulated EtaMAID grid (W 1.487-2.211, Q2 0.3-5.0, |cos theta*|<=0.9) referenced in the repo's own dataset description. Used CLAS12 eta defaults from the template/examples: model=3 (maid2000/EtaMAID), rc_mode=0 (full O(alpha) corrections), bmom=6.53 GeV, ivec=1 (recoil proton), vcut=0.166 GeV^2. Chunking: the top-level README states a 10-point-per-file limit, but this is stale/incorrect -- eta/exclurad.F declares npoimax=10000 for the input arrays, and eta/examples/input_multi_chunk.dat (bundled with the repo) itself demonstrates a single 50-point file using the multi-row, whitespace-delimited layout, confirming the Fortran list-directed READ has no 10-point ceiling. I verified this against the source before deciding, so all 25 points were placed in one input file (3 rows of up to 10 values per kinematic array) rather than split into three separate 10-point files as the README literally instructs; splitting would still work but is unnecessary and not what the code actually requires. Flagging this doc/source mismatch for awareness since a user following the README literally would over-chunk."
+}

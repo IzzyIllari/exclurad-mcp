@@ -1,0 +1,12 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "eta_W1.60_Q2-1.00_cos0.00_phi0-345_n25.dat"
+  ],
+  "flags": [
+    "single-file-not-chunked-despite-readme",
+    "assumed-default-header-parameters",
+    "non-integer-phi-step"
+  ],
+  "explanation": "Kinematics are physically valid for the eta channel: W = 1.6 GeV and Q2 = 1.0 GeV2 both fall inside the EtaMAID-2023 table coverage (W = 1.4856-6 GeV, Q2 = 0-5 GeV2, per mpintp.inc), and W = 1.6 GeV is well above the eta production threshold (~1.4867 GeV). cos(theta*) = 0 is within [-1,1]. All 25 points share the same W, Q2, cos(theta*); only phi* varies, taking 25 evenly spaced values from 0 to 345 deg inclusive (step = 345/24 = 14.375 deg, as literally requested).\n\nOn chunking: the top-level README.md states a hard 10-point-per-file limit, but I verified directly against exclurad.F that this is stale/incorrect documentation. The kinematic arrays are dimensioned to npoimax=10000 (line 18), and the point-count read (read(5,*)(w_input(i),i=1,npoi), etc.) is a list-directed Fortran read with an implied DO loop, which freely wraps across multiple lines regardless of N. The repo's own examples/input_multi_chunk.dat already demonstrates a single file with N=50, and examples/README.md explicitly confirms the 10-point cap only applies to the (absent-from-this-repo) batch runner scripts, not to the executable's actual input parsing. Since 25 << 10000, all 25 points were written to one file using the documented multi-row layout instead of splitting into 3 chunk files -- flagging this because it contradicts the top-level README's stated limit.\n\nHeader parameters not specified in the request were filled with the repo's documented eta-channel defaults: model=3 (EtaMAID/maid2000), rc_mode=0 (full O(alpha) RC), bmom=6.53 GeV (CLAS12 beam momentum), tmom=0.0, lepton=1 (electron), ivec=1 (recoil proton), vcut=0.166 GeV^2 (CLAS12 inelasticity cut). These should be confirmed against the actual experimental configuration before running."
+}

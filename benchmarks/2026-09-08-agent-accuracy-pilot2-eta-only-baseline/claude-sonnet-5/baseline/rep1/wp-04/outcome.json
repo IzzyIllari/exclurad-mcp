@@ -1,0 +1,11 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "input_eta_W1.6_Q2_1.0_cos0_phiscan25.dat"
+  ],
+  "flags": [
+    "top-level README.md claims a 10-point-per-file limit, but exclurad.F uses list-directed reads (read(5,*)) with npoimax=10000, and examples/input_multi_chunk.dat already demonstrates 50 points in a single file/call; the 10-point figure is outdated and only applies to the batch/slurm staging scripts, not the Fortran reader itself, so all 25 points were placed in one file instead of being split into chunks",
+    "phi* step size (345-0)/24 = 14.375 deg is non-integer; interpreted '25 points from 0 to 345' as 25 evenly spaced points inclusive of both endpoints (24 intervals), which divides evenly"
+  ],
+  "explanation": "Generated a single EXCLURAD input file for eta electroproduction (model=3/EtaMAID, ivec=1 proton, bmom=6.53 GeV CLAS12, vcut=0.166 GeV^2) with 25 points: W=1.6 GeV and Q2=1.0 GeV^2 held fixed (both exactly on the EtaMAID2023 table grid, well inside its W=1.4856-6 GeV and Q2=0-5 GeV^2 coverage and safely above the eta production threshold W~1.486 GeV), cos(theta*)=0 fixed, and phi* swept over 25 evenly spaced values from 0 to 345 deg (step 14.375 deg). No chunking across multiple files was needed: inspection of exclurad.F shows the point arrays are read with Fortran list-directed reads sized by npoimax=10000, so a single call handles all 25 points, consistent with the multi-row example (input_multi_chunk.dat, N=50) rather than the outdated 10-point limit stated in the top-level README."
+}

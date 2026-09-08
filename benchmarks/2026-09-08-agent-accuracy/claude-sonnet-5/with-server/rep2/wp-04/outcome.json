@@ -1,0 +1,13 @@
+{
+  "action": "fix_and_generate",
+  "input_files": [
+    "eta_W1.6_Q2_1.0_W1.6000-1.6000_Q21.0000-1.0000_p001.dat",
+    "eta_W1.6_Q2_1.0_W1.6000-1.6000_Q21.0000-1.0000_p002.dat",
+    "eta_W1.6_Q2_1.0_W1.6000-1.6000_Q21.0000-1.0000_p003.dat"
+  ],
+  "flags": [
+    "phi_step_nonstandard_14.375deg",
+    "chunked_10_10_5_for_fortran_10point_reader_limit"
+  ],
+  "explanation": "Request was self-inconsistent: '25 points' with 'phi from 0 to 345 in 25 steps' cannot both hold under the usual reading, since 0..345 spanned in 15deg increments (the standard CLAS12 phi binning) yields only 24 points, not 25. I resolved this by honoring the explicit endpoint count (25 points) and the stated range (0 to 345 inclusive), giving an even step of 345/24 = 14.375deg per point (0, 14.375, 28.75, ..., 345). All 25 points (W=1.6 GeV, Q2=1.0 GeV^2, cos(theta*)=0, phi as above) passed preflight_check with no warnings: W is well above the eta+p threshold (1.4861 GeV), cos(theta*)=0 is far from the +/-1 pole, Q2/W fall inside the eta lookup table (maid07-PPpi.tbl, actually EtaMAID-2023) coverage, and the beam/vcut settings are standard defaults. Since the eta Fortran reader accepts at most 10 kinematic points per input file, the 25 points were split into 3 files (10, 10, 5) via generate_input, matching the validated 10-point chunking and blank-line/trailer formatting."
+}
