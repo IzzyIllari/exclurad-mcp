@@ -151,7 +151,13 @@ CONDITION_FILE = "LEGD_CONDITION.md"   # instructions file carrying SYSTEM_APPEN
 MODEL_LIMITS: dict[str, dict[str, dict[str, int]]] = {
     "aiportal": {
         "meta.llama3-8b-instruct-v1:0": {"context": 8192, "output": 2048},
+        "meta.llama3-70b-instruct-v1:0": {"context": 8192, "output": 2048},
+        "amazon.nova-pro-v1:0": {"context": 300000, "output": 8192},
         "mistral7b": {"context": 19000, "output": 4096},
+    },
+    "sambanova": {
+        "sambanova.Mistral-Large-3-675B-Instruct-2512": {"context": 32768,
+                                                         "output": 4096},
     },
 }
 

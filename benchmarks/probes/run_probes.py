@@ -48,18 +48,27 @@ PROMPT = (
     "content beyond the one sentence about the exclurad server, quoting it if so."
 )
 
+# Sweep 2 (2026-09-09): every gateway model the first sweep did not cover, plus
+# the two it dropped for gateway-side token ceilings that run_leg_d.MODEL_LIMITS
+# now caps. Sweep 1 covered terra, gpt-5.4, opus-5, sonnet-5, gpt-oss-120b,
+# Nemotron-3-Super-120B, gemma-4-31B and Nemotron-3-Nano-30B (all passed) and
+# Nemotron-Nano-12B-VL (failed server-side: that vLLM instance is started
+# without --enable-auto-tool-choice, which no client-side setting can fix).
+# Their rows are already in tool_surface.csv and are not re-run here.
+#
+# The point of sweep 2 is size ladders within a family, not breadth for its own
+# sake: Nemotron 3 at 30B/120B/550B and gpt-oss at 20B/120B hold architecture
+# fixed while varying scale, which is what makes "does the server help small
+# models more?" a measurable question rather than a slogan.
+#
+# MODELS currently holds sweep 2b: the three models sweep 2 lost to gateway
+# ceilings that MODEL_LIMITS now caps, re-probed to see whether the cap is
+# enough. Set it back to the full sweep-2 list to re-run everything; rows
+# accumulate in tool_surface.csv either way, keyed by model.
 MODELS = [
-    "aiportal/aws-gov.gpt-5.6-terra",
-    "aiportal/aws-gov.gpt-5.4",
-    "aiportal/aws-gov.claude-opus-5",
-    "aiportal/aws.claude-sonnet-5",
-    "aiportal/gpt-oss-120b",
-    "aiportal/NVIDIA-Nemotron-3-Super-120B-A12B-FP8",
-    "aiportal/gemma-4-31B-it",
-    "darwin/darwin.NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-    "darwin/darwin.NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
-    "aiportal/meta.llama3-8b-instruct-v1:0",
-    "aiportal/mistral7b",
+    "aiportal/meta.llama3-70b-instruct-v1:0",
+    "aiportal/amazon.nova-pro-v1:0",
+    "sambanova/sambanova.Mistral-Large-3-675B-Instruct-2512",
 ]
 
 WRITERS = ("apply_patch", "write", "edit", "patch", "multiedit")
@@ -237,6 +246,18 @@ def main() -> int:
     SCRATCH.mkdir(parents=True, exist_ok=True)
     pslog = HERE / "sweep_ps.log"
     pslog.write_text(f"# opencode processes before each probe, {dt.datetime.now()}\n")
+    # tool_surface.csv accumulates across sweeps. It used to be rewritten from
+    # the current MODELS list alone, which silently dropped every model of an
+    # earlier sweep; a partial sweep is meant to add rows, not replace the file.
+    # Keyed by model so a deliberate re-probe (e.g. under new MODEL_LIMITS)
+    # overwrites its own stale row and nothing else.
+    prior: dict[str, dict] = {}
+    csv_path = HERE / "tool_surface.csv"
+    if csv_path.exists():
+        with open(csv_path, newline="") as fh:
+            for r in csv.DictReader(fh):
+                if r.get("model"):
+                    prior[r["model"]] = r
     rows = []
     for n, m in enumerate(MODELS):
         if n:
@@ -264,11 +285,14 @@ def main() -> int:
                 "instructions_leaked", "cost_usd", "wall_s", "rc", "timed_out",
                 "n_tool_calls", "tools_called", "attempts", "server_error",
                 "agent_fallback", "session_id"]
-        with open(HERE / "tool_surface.csv", "w", newline="") as fh:
+        merged = dict(prior)
+        for r in rows:
+            merged[r["model"]] = r
+        with open(csv_path, "w", newline="") as fh:
             w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
             w.writeheader()
-            w.writerows(rows)
-    print("\nwrote", HERE / "tool_surface.csv")
+            w.writerows(merged.values())
+    print(f"\nwrote {csv_path} ({len(prior)} prior + {len(rows)} this sweep)")
     return 0
 
 
