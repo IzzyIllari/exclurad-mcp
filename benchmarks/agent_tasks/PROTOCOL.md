@@ -205,6 +205,16 @@ is called out in the report's per-task table.
   summary in `explanation`. The reason was stated in the outcome; where
   in the outcome is not a physics criterion.
 
+### Amendment of 2026-09-09 (OpenCode shakedown)
+
+- ip-04 `must_mention_any` gains the forms `> 0`, `>0`, `greater than
+  zero`, `greater than 0` beside `positive` and `spacelike`. A luna
+  refusal in the OpenCode shakedown said "EXCLURAD requires Q2 > 0 for
+  electroproduction, but the requested Q2 is -0.5 GeV^2" and lost the
+  point on the token alone. Rescoring the 2026-09-08 Claude Code run
+  (180 conversations) and the 2026-09-09 luna pilot (30) with the
+  amended suite changes no result.
+
 ## Harnesses (added 2026-09-08 for the cross-vendor study)
 
 The agent loop is a treatment variable too, so every result directory
