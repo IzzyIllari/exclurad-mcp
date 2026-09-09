@@ -652,6 +652,52 @@ def is_opencode_server_error(summary: dict) -> bool:
 AGENT_FALLBACK_SIG = "not found. falling back to default agent"
 
 
+# Terminal conditions worth telling apart from ordinary model failure in
+# results.csv. A conversation an endpoint or the harness killed is not evidence
+# that the agent got the physics wrong, and the two should not share a bucket.
+# report_leg_d.py already emits a terminal_reason column; nothing populated it
+# until 2026-09-09.
+TERMINAL_SIGNATURES = (
+    # Bedrock rejects a request whose message list ends with an assistant
+    # message. OpenCode produces exactly that when it reaches maxSteps while the
+    # last assistant turn is still a tool call. Every claude-sonnet-5 baseline
+    # fx-01 conversation in the stage 1 priced arm died here at num_turns=25,
+    # after 40 tool calls of real work -- NOT a request timeout; the longest
+    # SUCCESSFUL conversation on the same path ran 639.6 s. See that run's
+    # README.md.
+    ("assistant message prefill", "assistant_prefill_rejected"),
+    # SQLite contention on OpenCode's shared session DB when parallel workers
+    # start together: rc=1 in ~0.3 s, num_turns=None, empty transcript. The
+    # retry succeeds, so this labels attempt dirs rather than scored cells.
+    ("database is locked", "opencode_db_locked"),
+    ("contextwindowexceeded", "context_window_exceeded"),
+    ("content filter", "content_filter_blocked"),
+)
+
+
+def terminal_reason(dest: Path, timed_out: bool) -> str | None:
+    """Why the conversation stopped, when something external stopped it."""
+    if timed_out:
+        return "wall_clock_timeout"
+    blob = ""
+    try:
+        blob += (dest / "stderr.txt").read_text(errors="replace")
+    except OSError:
+        pass
+    try:  # the terminating error is the last event; the tail is enough
+        with open(dest / "transcript.jsonl", "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            fh.seek(max(0, fh.tell() - 16384))
+            blob += fh.read().decode("utf-8", "replace")
+    except OSError:
+        pass
+    low = blob.lower()
+    for needle, label in TERMINAL_SIGNATURES:
+        if needle in low:
+            return label
+    return None
+
+
 def agent_fallback_detected(dest: Path) -> bool:
     """True if this conversation silently ran under the default agent."""
     try:
@@ -835,6 +881,11 @@ def run_attempt(job: dict, cfg: argparse.Namespace, lock: threading.Lock, attemp
         if result is not None:
             result.setdefault("errors", []).append(
                 "agent fallback: ran under the default agent, tool gates not applied")
+    reason = terminal_reason(dest, timed_out)
+    summary["terminal_reason"] = reason
+    if reason and result is not None:
+        # report_leg_d.py reads it from result, not from the summary root.
+        result["terminal_reason"] = reason
     if result is not None and result.get("duration_ms") is None:
         result["duration_ms"] = int(wall * 1000)
     (dest / "result.json").write_text(json.dumps(summary, indent=2))
