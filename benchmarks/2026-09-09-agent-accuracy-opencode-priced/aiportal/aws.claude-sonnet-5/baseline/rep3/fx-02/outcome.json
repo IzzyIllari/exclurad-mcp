@@ -1,0 +1,12 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "input_eta_W1.4885_Q2_0.5_cos0.2_phi60.dat"
+  ],
+  "flags": [
+    "near_threshold",
+    "small_radiative_phase_space",
+    "coarse_hadronic_table_interpolation_gap"
+  ],
+  "explanation": "Kinematics are physically allowed but sit right at the edge of the eta production phase space, so I generated the input as requested and flag two related risks rather than refusing. Threshold: with the code's masses m_p=0.938272 GeV and m_eta=0.54786 GeV (setcon/amhad in eta/exclurad.F:214), W_thr = m_p+m_eta = 1.486132 GeV. The requested W=1.4885 GeV is only ~2.4 MeV above threshold, so this point IS physical (vmax = (W-m_p)^2 - m_eta^2 - 1e-8 evaluates to about +0.0029 GeV^2 in bornkin, eta/exclurad.F:253, i.e. positive but tiny). Because vmax << the input vcut=0.166 GeV^2, the code will use the intrinsic threshold-limited vmax automatically (vmax=min(vmax,cutv) in eta/exclurad.F:254), so vcut=0.166 (the standard CLAS12 value) does not need to be changed and was kept as-is. Two numerical-risk points: (1) The radiative photon phase space (0 to vmax~0.003 GeV^2) is extremely small; the log(vmax^2/ssh0/xxh0) infrared term (eta/exclurad.F:138) and the adaptive d01fce integrator (500-point cap, eta/exclurad.F:436) can become numerically stiff or fail to converge this close to threshold - this is exactly the regime the repo's README flags ('For runs near the eta threshold ... use the unphysical-skip runner', eta/README.md:186). (2) The tabulated EtaMAID hadronic amplitude grid (eta/mpintp.inc:83-86) has its first W node at 1.4856 GeV and its second at 1.500 GeV - a 14.4 MeV gap, wider than the otherwise-uniform 10 MeV spacing used up to 2 GeV. W=1.4885 GeV falls inside that gap, so the Born cross section here is linear-interpolated (method_spline=2, eta/exclurad.F:4432) across a region of rapidly varying near-threshold (S-wave cusp) behavior, which the two-point linear interpolant cannot resolve well. Net: proceed with the run as specified (model=3/EtaMAID, ivec=1 recoil proton, bmom=6.53 GeV assumed CLAS12 default since beam energy was not given, vcut=0.166 GeV^2), but treat the resulting radiative correction factor near this point with reduced confidence and, if possible, cross-check against neighboring W points away from the 1.4856-1.500 GeV table gap, or rerun with the unphysical-skip runner if exclurad.exe reports a d01fce ifail=2/3 non-convergence."
+}

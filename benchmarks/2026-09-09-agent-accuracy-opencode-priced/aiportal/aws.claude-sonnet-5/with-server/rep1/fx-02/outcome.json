@@ -1,0 +1,10 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "eta_W1.4885_Q20.5_W1.4885-1.4885_Q20.5000-0.5000_p001.dat"
+  ],
+  "flags": [
+    "near_threshold_hang_risk"
+  ],
+  "explanation": "W = 1.4885 GeV is physically valid: it sits 2.4 MeV above the eta+p production threshold (1.4861 GeV) for this channel, so the kinematic point is not impossible and the input file was generated as requested. However, the preflight check returned WARN because this W is within 10 MeV of threshold, a region the EXCLURAD eta build is known to mishandle: the phase-space integrator can hang indefinitely near threshold, or exit cleanly while silently omitting the 'tai:' line in stdout (a false-negative 'N/A' with no error message). Q2=0.5 GeV^2 and cos(theta*)=0.2 are both well inside the eta MAID-2023 lookup table grid (W in [1.4856,6.0], Q2 in [0.0,5.0]), and cos(theta*)=0.2 is safely away from the +/-1 integration poles, so no other corrections were needed. Recommendation: run this single-point input as a smoke test under a timeout (e.g. a few minutes) before batching it into a larger grid, and confirm the output actually contains a 'tai:' line rather than assuming completion from exit status alone."
+}

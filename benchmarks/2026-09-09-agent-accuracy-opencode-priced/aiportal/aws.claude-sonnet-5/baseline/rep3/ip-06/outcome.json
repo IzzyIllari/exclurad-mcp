@@ -1,0 +1,6 @@
+{
+  "action": "refuse",
+  "input_files": [],
+  "flags": ["cos_theta_star_out_of_range"],
+  "explanation": "Requested cos(theta*) = 1.3 is mathematically invalid: the cosine of a physical angle must lie in [-1, +1]. This is not a model-dependent boundary or something that can be corrected by clamping/chunking; exclurad.F computes sinh = sqrt(1 - cosh**2) (exclurad.F:273) from this input, and cosh = -1.3 (for ivec=1, the eta/proton recoil configuration; exclurad.F:104) yields sqrt(-0.69), an attempt to take the square root of a negative number that silently produces NaN in Fortran real arithmetic with no runtime diagnostic, corrupting the entire radiative-correction calculation for that point. The other requested kinematics (W = 1.7 GeV, Q2 = 1.0 GeV^2, phi* = 90 deg) are physically reasonable and within the documented eta-channel grid (W: 1.487-2.211 GeV, Q2: 0.3-5.0 GeV^2), so only cos(theta*) is at issue. No input file was generated because guessing the intended correction (e.g., clamping to 1.0, flipping sign to -1.3->invalid too, or reinterpreting as an angle in degrees/radians) would silently change the physics of the request. Recommend the user resubmit with a valid cos(theta*) in [-1, 1], or clarify if theta* = 1.3 (radians, cos ~ 0.267) or theta* = 1.3 deg (cos ~ 0.99997) was intended instead."
+}

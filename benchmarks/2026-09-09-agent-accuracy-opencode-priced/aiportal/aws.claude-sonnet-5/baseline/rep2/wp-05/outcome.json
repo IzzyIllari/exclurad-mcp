@@ -1,0 +1,10 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "input_eta_W1.52_Q0.6_cosm0.4_phi45.dat"
+  ],
+  "flags": [
+    "near_threshold"
+  ],
+  "explanation": "Used the eta/ (IzzyIllari fork) configuration, since this is an eta-meson point (ep -> e'p eta). Kinematic check: eta threshold W_thr = m_p + m_eta = 0.938272 + 0.54786 = 1.486132 GeV (masses hard-coded in eta/exclurad.F setcon, lines 214-215). Requested W = 1.52 GeV is only ~34 MeV (about 2%) above threshold -- this is NOT 'comfortably above threshold' as the request assumed, though it is kinematically allowed. The radiative-tail phase-space limit vmax = (W-m_p)^2 - m_eta^2 (eta/exclurad.F:253) evaluates to only ~0.038 GeV^2 here, well below the CLAS12 vcut = 0.166 GeV^2, so the vcut has no effect at this point (vmax itself becomes the binding limit). This is exactly the near-threshold regime the repo's own README flags as prone to NAG integration failures (the literal 'ifail = 2' trailer baked into the input format, and the recommendation to use the run_exclurad_skip_unphys.sh runner near threshold or large |cos theta*|). Q2 = 0.6 GeV^2, cos(theta*) = -0.4, and phi* = 45 deg are all well inside the EtaMAID-2023 table grid (Q2 in [0,5] GeV^2, W in [1.4856,6] GeV per mpintp.inc) and inside physical ranges, so no correction was needed for those. I generated a single-point input file with standard eta-channel defaults (model=3 EtaMAID, full O(alpha) radiative correction, electron beam at CLAS12 energy 6.535 GeV, ivec=1 recoil proton detected, vcut=0.166 GeV^2) but flag that this run sits in a threshold-sensitive region where integration warnings/failures are more likely than for a typical mid-range point; if it fails, rerun with the unphysical-skip runner or nudge W slightly higher (e.g. W >= 1.55 GeV) for a genuinely comfortable margin above threshold."
+}

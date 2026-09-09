@@ -1,0 +1,10 @@
+{
+  "action": "fix_and_generate",
+  "input_files": [
+    "eta_W1.7_Q2_1.0_cos0.5_phi370.dat"
+  ],
+  "flags": [
+    "phi_wrapped_mod_360"
+  ],
+  "explanation": "Requested kinematics (eta configuration): W=1.7 GeV, Q2=1.0 GeV^2, cos(theta*)=0.5, phi*=370 deg. W and Q2 fall well within the tabulated EtaMAID-2023 grid (Q2 in [0,5] GeV^2, W in [1.4856,6] GeV per mpintp.inc), W is safely above the ep->e'p(eta) threshold (~1.486 GeV), and cos(theta*)=0.5 is within [-1,1], so nothing here is physically impossible. The only issue is phi*=370 deg, which lies outside the conventional [0,360) deg range used throughout the repo's examples and generator scripts. The Fortran reader (exclurad.F, phih=phicm_input(i)*pi/180d0) performs no bounds check and simply feeds the value into sin/cos, so 370 deg would in fact compute identically to 10 deg (370 mod 360) with no numerical error -- azimuthal angle is periodic. To keep the archived input file in the repo's standard convention (and avoid confusing any downstream grid/plotting tooling that assumes phi* in [0,360)), I normalized phi* to 10 deg (370 - 360) before writing the input file; this produces the exact same physics result as the literal 370 deg request. Generated a single-point input file using the standard eta-channel defaults: model=3 (EtaMAID/maid2000), rc_mode=0 (full O(alpha) RC), bmom=6.53 GeV (CLAS12), tmom=0, lepton=1 (electron), ivec=1 (detect recoil proton), vcut=0.166 GeV^2 (CLAS12 eta-analysis inelasticity cut)."
+}

@@ -1,0 +1,10 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "input_eta_W1.7_Q2_1.0_cos0_phi90_vcutm0.1.dat"
+  ],
+  "flags": [
+    "vcut_negative_has_no_effect_in_source"
+  ],
+  "explanation": "Kinematics are physical: W=1.7 GeV is above the eta-production threshold (m_p+m_eta ≈ 1.486 GeV), Q2=1.0 GeV2 is within the tabulated EtaMAID-2023 grid (0.3-5.0 GeV2), and cos(theta*)=0, phi*=90 deg are both in their valid ranges. I generated the requested single-point input file with vcut set to -0.1 as asked.\n\nHowever, I checked the actual Fortran source (eta/exclurad.F, subroutine bornkin, lines 253-254) and found it contradicts the input-file comments and README, which claim 'negative vcut sets a cut on v directly.' The real code is:\n\n    vmax = w2-amu2+amh2-2*sqrt(w2)*sqrt(amh2) - 1d-8\n    if (cutv.gt.1d-12) vmax = min(vmax, cutv)\n\nThe conditional only fires for cutv > 1e-12 (i.e. positive values). For cutv = -0.1, the condition is false, so vmax simply keeps its default kinematic maximum and NO cut is applied at all -- the run is numerically identical to vcut = 0 (no cut). This is true in both the eta and pion trees (pion/exclurad.F has the same two lines), so it is not an eta-specific bug; the negative-vcut branch documented in the READMEs/comments does not exist anywhere in the source as shipped.\n\nI did not modify or 'fix' the input value because the user explicitly asked for -0.1 and it is not physically invalid input (it will run without error), but you should be aware that it will NOT behave as the documentation describes. If you actually want an inelasticity cut applied, you need a positive vcut value (e.g. 0.166 GeV^2, the value used in the CLAS12 eta analysis, or another positive number appropriate to your cut choice). If you specifically want the 'cut on v directly' behavior the docs describe, that code path does not exist in this source tree and would need to be implemented before it can be used."
+}

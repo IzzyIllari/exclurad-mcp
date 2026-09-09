@@ -134,6 +134,27 @@ OPENCODE_TOOLS_ON = ["read", "write", "glob", "grep"]
 OPENCODE_SERVER_TOOLS_OFF = ["exclurad_run_exclurad", "exclurad_smoke_test"]
 CONDITION_FILE = "LEGD_CONDITION.md"   # instructions file carrying SYSTEM_APPEND
 
+# Per-model token limits, keyed provider -> model. OpenCode asks the gateway for
+# 32000 output tokens by default, and the small models reject that outright
+# before generating anything (2026-09-09 probe sweep):
+#
+#   meta.llama3-8b  "maximum tokens ... exceeds the model limit of 2048"
+#   mistral7b       "max_tokens=32000 cannot be greater than max_model_len=19000"
+#
+# Both are gateway-side ceilings, not agent behaviour, so capping the request is
+# a harness fix rather than a thumb on the scale -- but a 2048-token output
+# budget IS a real constraint on what llama3-8b can do, and any comparison
+# against it has to say so. These live here rather than in the user's global
+# ~/.config/opencode config precisely so provenance captures them: the per-run
+# opencode.json is merged OVER the global one, and only this file is copied into
+# the results directory. Values are the gateway's own reported ceilings.
+MODEL_LIMITS: dict[str, dict[str, dict[str, int]]] = {
+    "aiportal": {
+        "meta.llama3-8b-instruct-v1:0": {"context": 8192, "output": 2048},
+        "mistral7b": {"context": 19000, "output": 4096},
+    },
+}
+
 # Codex: the closest available policy. Shell cannot be removed; the sandbox is
 # workspace-write (writes confined to the working dir). Recorded in provenance as a
 # protocol deviation.
@@ -236,6 +257,13 @@ def opencode_config(condition: str, cfg: argparse.Namespace) -> dict:
         for t in OPENCODE_SERVER_TOOLS_OFF:
             conf["tools"][t] = False
             conf["agent"]["legd"]["tools"][t] = False
+    # Deep-merged over the global provider block, so npm/baseURL/cost survive and
+    # only `limit` is added. Emitted for every run, not just the capped models,
+    # so the recorded config is identical whichever model the run used.
+    conf["provider"] = {
+        pid: {"models": {m: {"limit": dict(lim)} for m, lim in models.items()}}
+        for pid, models in MODEL_LIMITS.items()
+    }
     return conf
 
 

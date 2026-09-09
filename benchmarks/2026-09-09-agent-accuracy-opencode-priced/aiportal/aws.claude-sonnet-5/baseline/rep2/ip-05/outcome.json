@@ -1,0 +1,9 @@
+{
+  "action": "refuse",
+  "input_files": [],
+  "flags": [
+    "kinematically_forbidden",
+    "beam_energy_insufficient"
+  ],
+  "explanation": "The requested point (W = 2.0 GeV, Q2 = 3.0 GeV^2, beam = 2.2 GeV) is not physically reachable and was not generated. For exclusive electroproduction the energy transfer is fixed by W and Q2 via nu = (W^2 - Mp^2 + Q2) / (2*Mp) (this is exactly the 'enu' quantity computed in eta/exclurad.F borntest, line ~304). With Mp = 0.9382799 GeV (eta/spp.inc): nu = (4.0 - 0.8804 + 3.0) / 1.8766 = 3.263 GeV. The scattered-electron energy is E' = bmom - nu (exclurad.F line 305); with a 2.2 GeV beam this gives E' = 2.2 - 3.263 = -1.06 GeV, a negative energy, which is unphysical. In plain terms: a 2.2 GeV electron beam cannot deposit 3.26 GeV into the hadronic system, so W = 2.0 GeV at Q2 = 3.0 GeV^2 is inaccessible at this beam energy regardless of radiative corrections -- the code would either fail internally (sqrt/log of negative arguments in the Born kinematics) or silently produce garbage rather than a meaningful cross section. This is a fundamental relativistic-kinematics limit, not a code bug, model-table gap, or eta-threshold issue (the eta production threshold itself, W ~ Mp + M_eta ~ 1.486 GeV, is not the limiting factor here). To run this W, Q2 point you need a beam energy of at least ~3.3-3.5 GeV to keep E' positive and comfortably inside the physical electron-scattering-angle range (Q2 <= 4*E*E'); the eta config's own default CLAS12 beam energy of 6.53 GeV (see eta/README.md, eta/input.dat) satisfies this easily (E' ~ 3.27 GeV, Q2_max ~ 85 GeV^2 >> 3.0). Alternatively, keep the 2.2 GeV beam and choose a lower W and/or Q2 consistent with nu < bmom. No input.dat was written because any file would encode an unphysical kinematic point."
+}

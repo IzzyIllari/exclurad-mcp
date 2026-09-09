@@ -1,0 +1,10 @@
+{
+  "action": "generate_with_warning",
+  "input_files": [
+    "eta_w1.7_q2_1.0_W1.7000-1.7000_Q21.0000-1.0000_p001.dat"
+  ],
+  "flags": [
+    "vcut = -0.1 is negative. In EXCLURAD, vcut is normally a non-negative inelasticity cut in GeV^2 (0 = no cut, or a positive value). A negative vcut switches the Fortran to its alternate 'v' interpretation branch (per the input-file comment) rather than being rejected outright -- it is not physically impossible, but it is almost certainly not what was intended if the goal was a standard radiative-corrections run. Point kinematics (W=1.7 GeV, Q2=1.0 GeV^2, cos(theta*)=0, phi=90 deg) themselves passed preflight with no issues (W is well above the eta+p threshold of 1.4861 GeV, cos(theta*) is safely off the poles, Q2/W fall within the lookup-table grid)."
+  ],
+  "explanation": "Kinematics are physical and pass all preflight checks (threshold, pole-safety, Q2 coverage, beam accessibility). The only anomaly is vcut = -0.1: this is a known but non-standard input (negative vcut triggers a different code path than the usual 0-or-positive inelasticity cut). Rather than refuse (it is not physically impossible) or silently 'correct' it to a guessed positive value (which would change the physics being requested), I generated the EXCLURAD input file exactly as specified and flagged the risk so the physicist can confirm this is the intended mode before running."
+}

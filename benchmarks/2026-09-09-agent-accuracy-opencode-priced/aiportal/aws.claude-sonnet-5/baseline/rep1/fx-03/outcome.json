@@ -1,0 +1,10 @@
+{
+  "action": "fix_and_generate",
+  "input_files": [
+    "eta_W1.7_Q2_1.0_cos0.5_phi370.dat"
+  ],
+  "flags": [
+    "phi_out_of_range_normalized"
+  ],
+  "explanation": "Requested kinematics (eta electroproduction, ep -> e'p(eta)): W=1.7 GeV, Q2=1.0 GeV^2, cos(theta*)=0.5, phi*=370 deg. W=1.7 GeV is safely above the eta production threshold (W_thr = m_p + m_eta ~ 1.486 GeV) and within the EtaMAID-2023 table range used by this configuration (W up to 6 GeV, Q2 up to 5 GeV^2, full cos(theta*) range). No physical impossibility. However, phi* = 370 deg is outside the conventional [0,360) azimuthal-angle domain; the Fortran reader (exclurad.F) passes phicm_input directly into cos()/sin() with no range check or wraparound, so 370 deg would be evaluated at its literal value rather than being reduced modulo 360. While trigonometrically equivalent to 10 deg and not expected to crash the integration, using an out-of-convention angle is not standard practice and could cause confusion in downstream analysis/plotting (e.g. grid tools and manifest files that assume phi in [0,360)). I therefore normalized phi* to 10 deg (370 - 360) before writing the input file, matching the code's implicit periodic interpretation. Used the eta configuration (model=3 EtaMAID/maid2000, ivec=1 recoil proton, vcut=0.166 GeV^2, bmom=6.535 GeV per CLAS12 defaults in eta/input.dat) with a single 1-point block per the standard input.dat format (eta/README.md, eta/examples/README.md)."
+}

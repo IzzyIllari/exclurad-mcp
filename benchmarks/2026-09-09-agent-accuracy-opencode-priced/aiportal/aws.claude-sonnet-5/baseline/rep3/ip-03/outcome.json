@@ -1,0 +1,6 @@
+{
+  "action": "refuse",
+  "input_files": [],
+  "flags": [],
+  "explanation": "Requested point (pion channel, W = 1.05 GeV, Q2 = 0.3 GeV^2, cos(theta*) = 0, phi* = 90 deg) is kinematically forbidden. Single-pion electroproduction p(e,e'pi+)n requires W > M_p + M_pi+ = 0.938272 + 0.139570 = 1.077842 GeV. The requested W = 1.05 GeV is about 28 MeV below this threshold, so there is no physical (n,pi+) final state to produce -- the hadronic phase space is empty. This is confirmed directly in pion/exclurad.F, subroutine bornkin: vmax = w2 - amu2 + amh2 - 2*sqrt(w2)*sqrt(amh2) - 1e-8, which algebraically equals (W - M_pi)^2 - M_p^2 - 1e-8. For W=1.05 GeV this evaluates to about -0.0515 GeV^2, i.e. negative, meaning the maximum allowed bremsstrahlung-photon invariant is negative. Downstream this feeds sqrt() of negative arguments in sqlw0/sqll and other phase-space factors, producing NaNs/garbage rather than a meaningful radiative correction -- not a numerical glitch but the code's expression of 'no phase space here.' This is a hard physical boundary, not a fixable input convention (unlike e.g. an out-of-range cos theta* or inconsistent phi* convention), so no input.dat was generated. To proceed, choose W >= ~1.08 GeV (the code's example template uses W=1.232 GeV, well above threshold, at Q2=0.4 with phi scans at cos(theta*)=0)."
+}

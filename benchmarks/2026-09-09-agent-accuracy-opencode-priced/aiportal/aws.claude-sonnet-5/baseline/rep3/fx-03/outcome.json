@@ -1,0 +1,6 @@
+{
+  "action": "fix_and_generate",
+  "input_files": ["input_eta_W1.7_Q2_1.0_cos0.5_phi370.dat"],
+  "flags": ["phi_wrapped_mod_360"],
+  "explanation": "Kinematics W=1.7 GeV, Q2=1.0 GeV^2, cos(theta*)=0.5 are physically valid for eta electroproduction (eta threshold W_thr = m_p+m_eta ~= 1.4856 GeV; requested W is well above threshold and within the EtaMAID-2023 table range W=1.4856-6 GeV, Q2=0-5 GeV^2). phi* = 370 deg is not a valid azimuthal angle as given -- EXCLURAD expects phi* in [0,360) degrees and the Fortran reader has no internal wrap-around or bounds check on phi*, so passing 370 verbatim would silently feed an out-of-domain angle into cos()/sin() calls (mathematically defined, since sin/cos are periodic, but inconsistent with the documented [0,360) input convention and how other tooling like rcgrid_inputgen.py generates/labels phi grids). I applied the standard fix of wrapping phi* mod 360 -> 10 degrees (370 - 360 = 10), which is physically and numerically identical (sin/cos are 360-periodic) and generated a single-point EtaMAID (model=3) input file using CLAS12 defaults (bmom=6.535 GeV, ivec=1 detected recoil proton, vcut=0.166 GeV^2, full O(alpha) RC mode). The wrap is noted in-line in the input file comment and flagged here so the physicist is aware the original 370 was normalized to 10 before running."
+}

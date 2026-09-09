@@ -1,0 +1,53 @@
+{
+  "model": "aiportal/aws.claude-sonnet-5",
+  "condition": "baseline",
+  "rep": 2,
+  "task_id": "ip-01",
+  "class": "ill_posed",
+  "harness": "opencode",
+  "started_utc": "2026-09-09T20:30:15.917540+00:00",
+  "attempt": 1,
+  "last_rate_limit": null,
+  "wall_seconds": 99.8,
+  "exit_code": 0,
+  "timed_out": false,
+  "work_dir": "/Users/izzyi/.cache/exclurad-mcp-leg-d/2026-09-09-agent-accuracy-opencode-priced/aiportal/aws.claude-sonnet-5/baseline/rep2/ip-01",
+  "files_written": [
+    "outcome.json"
+  ],
+  "outcome_json_present": true,
+  "n_tool_calls": 14,
+  "tool_calls": {
+    "read": 8,
+    "glob": 1,
+    "grep": 4,
+    "write": 1
+  },
+  "init": {
+    "session_id": "ses_f7822ca9effem3iffyB0yu4aqk",
+    "model": {
+      "id": "aws.claude-sonnet-5",
+      "providerID": "aiportal",
+      "variant": "default"
+    },
+    "agent": "legd",
+    "opencode_version": "1.18.28"
+  },
+  "result": {
+    "subtype": "success",
+    "is_error": false,
+    "num_turns": 9,
+    "duration_ms": 99305,
+    "total_cost_usd": 0.18357120000000002,
+    "usage": {
+      "input_tokens": 37173,
+      "output_tokens": 7863,
+      "reasoning_tokens": 0,
+      "cache_read_input_tokens": 178995,
+      "cache_creation_input_tokens": 0
+    },
+    "session_id": "ses_f7822ca9effem3iffyB0yu4aqk",
+    "errors": []
+  },
+  "final_text": "## Summary\n\nI refused this request because **W = 1.2 GeV is kinematically forbidden** for \u03b7 electroproduction.\n\n**The physics:** ep \u2192 e'p\u03b7 requires enough invariant mass W to create a proton (938.272 MeV) and an \u03b7 meson (547.86 MeV) in the final hadronic system:\n\n$$W_{thr} = m_p + m_\\eta = 0.938272 + 0.54786 = 1.486132 \\text{ GeV}$$\n\nAt **W = 1.2 GeV**, this threshold is violated by ~286 MeV \u2014 there is no phase space for the p+\u03b7 final state to exist at all, let alone radiate photons.\n\n**Where this shows up in the code:**\n- `eta/exclurad.F:214-215,222-223` \u2014 hardcodes `m_p = 0.938272 GeV`, `m_\u03b7 = 0.54786 GeV`\n- `eta/exclurad.F:253` \u2014 the phase-space bound `vmax = W\u00b2 \u2212 m_\u03b7\u00b2 + m_p\u00b2 \u2212 2\u00b7W\u00b7m_p` goes **negative** at W=1.2 GeV, meaning the bremsstrahlung integration domain is empty\n- `eta/README.md:52` \u2014 the published production grid explicitly starts at `W = 1.487 GeV`, matching this threshold\n\nSince Born cross section is undefined/zero below threshold, and radiative corrections are computed as a ratio to Born, there's no meaningful RC to compute \u2014 this isn't a numerical edge case or code limitation, it's four-momentum conservation. I did not generate an input file.\n\n**To proceed:** re-run with **W \u2265 1.487 GeV** (e.g., W = 1.5 GeV) at the same Q\u00b2 = 1.0, cos \u03b8* = 0, \u03c6* = 90\u00b0, and I can generate a valid EXCLURAD input file immediately.\n\nResult written to `outcome.json` with `action: \"refuse\"`."
+}
