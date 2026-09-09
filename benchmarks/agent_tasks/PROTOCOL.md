@@ -272,3 +272,64 @@ machine must confirm: the advertised tool list under the `legd` agent
 that the MCP server connects, that a write outside the working directory
 is refused, and whether any global instructions file (`AGENTS.md`) is
 loaded. Record the probe transcript beside `provenance.json`.
+
+### Codex harness amendment (2026-09-09): version pin and tool gating
+
+**Version.** All Codex probes, tool gating and the first shakedown were done
+on **0.153.0**. The CLI **self-updated to 0.153.4 on 2026-09-09**, on an
+interactive `codex` launch, before any scored Codex cell ran. The update was
+accepted rather than reverted, on evidence:
+`benchmarks/2026-09-09-agent-accuracy-codex-shakedown-0.153.4/` is 4/4 clean
+(gpt-5.6-luna, wp-01 and ip-04, both conditions) and shows the **same event
+schema and the same tool surface** as 0.153.0 — token counts arrive on
+`turn.completed`, `shell` and `file_change` appear in `tool_calls`, with-server
+reaches `exclurad__list_channels` / `__resolve_tables` / `__preflight_check` /
+`__generate_input`, and `run_exclurad` and `smoke_test` appear nowhere. The
+0.153.0 parser required no change.
+
+Scored Codex cells are pinned with `--expect-harness-version 0.153.4`; the
+runner refuses to start against any other build.
+
+**Updater.** No documented switch exists to disable auto-update: `codex --help`
+exposes an `update` subcommand but no disabling flag, `~/.codex/config.toml`
+has no such key, and the binary carries no `CODEX_*` environment variable for
+it (only `CODEX_MANAGED_BY_*` package-manager markers). The updater is
+therefore neutralised by putting the versioned release directory first on the
+runner's `PATH`:
+
+```
+~/.codex/packages/standalone/releases/0.153.4-aarch64-apple-darwin/bin
+```
+
+after which `which codex` resolves there rather than to `~/.local/bin/codex`.
+This matters because `~/.local/bin/codex` is **not a wrapper script** — it is a
+copy of the release binary with an identical sha256, replaced in place on
+update — so only the versioned directory is stable. Provenance records the
+resolved path and its sha256 (`b973d440acac501f` for 0.153.4).
+
+`codex exec` does **not** self-update; a bare exec call produces no update
+banner. The runner was never at risk of a version change mid-run. The update
+path is interactive `codex` launch, which is how this one occurred.
+
+**Corrections to the Harnesses table above**, superseded by the 2026-09-09
+Codex work:
+
+- The command is `codex exec --json --approve-for-me …`, not
+  `--sandbox workspace-write`. `codex exec` pins `approval_policy` to `never`
+  whatever `-c` says, and MCP under `never` is rejected outright, so the
+  with-server condition could not call a single tool until `--approve-for-me`
+  replaced it. Containment is unchanged: the sandbox is still workspace-write.
+- **`run_exclurad` IS removable**, contrary to the table's "no". Codex exposes
+  every server tool unless `mcp_servers.<name>.enabled_tools` is set; it is now
+  set to the same nine tools OpenCode gets, and the shakedown confirms
+  `run_exclurad` and `smoke_test` are absent.
+- Codex can write outside the working tree via `file_change`, which
+  `sandbox_workspace_write.exclude_slash_tmp` does not close. The parser flags
+  any such write as an integrity error. This is a real asymmetry against
+  OpenCode, which refuses those writes outright.
+
+**LANL gateway models remain excluded from the Codex arm.** `--approve-for-me`
+invokes a `codex-auto-review` model the team is not licensed for (403), and the
+only alternative removes sandboxing entirely. Codex cells therefore run
+OpenAI-native models only, which confounds harness with model: there is no
+shared-model cross-harness cell, and the combined report must not present one.
