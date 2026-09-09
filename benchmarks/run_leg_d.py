@@ -273,18 +273,47 @@ def opencode_args(model: str, work: Path) -> list[str]:
             "--model", model, "--dir", str(work)]
 
 
+# MCP tools the with-server condition may call. Mirrors the OpenCode gate:
+# run_exclurad and smoke_test are withheld in both harnesses because they burn
+# real compute. Codex exposes every server tool unless enabled_tools is given,
+# so without this the two harnesses had different surfaces (probe 2026-09-09).
+CODEX_MCP_TOOLS = ["describe_build_slots", "describe_outputs", "generate_build",
+                   "generate_input", "list_channels", "map_failures",
+                   "parse_output", "preflight_check", "resolve_tables"]
+
+
 def codex_args(condition: str, model: str, max_turns: int, work: Path,
                cfg: argparse.Namespace, last_msg: Path) -> list[str]:
-    args = ["codex", "exec", "--json", "--model", model, "--sandbox", "workspace-write",
+    # --approve-for-me, not --sandbox workspace-write (they are mutually
+    # exclusive). `codex exec` pins the approval policy to `never` regardless
+    # of -c approval_policy, and an MCP call under `never` is refused outright
+    # ("MCP tool call requires approval, but approval policy is never"), which
+    # made the with-server condition impossible. --approve-for-me runs the
+    # same workspace-write sandbox and routes approvals through automatic
+    # review, so containment is unchanged. Verified 2026-09-09.
+    args = ["codex", "exec", "--json", "--model", model, "--approve-for-me",
             "--cd", str(work), "--skip-git-repo-check", "--ignore-user-config",
             "--ignore-rules", "-c", f"max_turns={max_turns}",
             "-c", "tools.web_search=false",
+            # Codex's workspace-write sandbox writes /tmp and $TMPDIR by
+            # default; OpenCode denies both. The probe agent duly wrote
+            # /tmp/legd_leak.txt. These narrow the shell path, but they do NOT
+            # close the gap: Codex also writes through a `file_change` item,
+            # and a re-probe with both flags set still landed /tmp/legd_leak.txt
+            # (status completed). So out-of-tree writes remain possible under
+            # Codex and impossible under OpenCode -- a real cross-harness
+            # asymmetry, recorded rather than papered over. parse_codex flags
+            # any such write into result.errors.
+            "-c", "sandbox_workspace_write.exclude_slash_tmp=true",
+            "-c", "sandbox_workspace_write.exclude_tmpdir_env_var=true",
             "--output-last-message", str(last_msg)]
     if condition == "with-server":
         env = (f'{{EXCLURAD_WORK_DIR_ETA="{cfg.eta_src}", '
                f'EXCLURAD_WORK_DIR_PIPLUS="{cfg.pion_src}"}}')
+        tools = "[" + ", ".join(f'"{t}"' for t in CODEX_MCP_TOOLS) + "]"
         args += ["-c", f'mcp_servers.exclurad.command="{cfg.server_bin}"',
-                 "-c", f"mcp_servers.exclurad.env={env}"]
+                 "-c", f"mcp_servers.exclurad.env={env}",
+                 "-c", f"mcp_servers.exclurad.enabled_tools={tools}"]
     return args
 
 
@@ -421,31 +450,75 @@ def parse_opencode(lines: list[dict], dest: Path, rc: int, env: dict) -> dict:
 
 
 def parse_codex(lines: list[dict], dest: Path, rc: int) -> dict:
-    """Codex --json JSONL: harvest tool calls, the last token_count event,
-    and the final message written by --output-last-message."""
+    """Codex --json JSONL -> the common result contract.
+
+    Codex 0.153.0 emits a thread/turn/item stream, not the flat event types an
+    earlier version of this function looked for (verified against live runs
+    2026-09-09):
+
+        {"type":"thread.started","thread_id":"..."}
+        {"type":"turn.started"}
+        {"type":"item.started"  ,"item":{"id","type",...}}
+        {"type":"item.completed","item":{"id","type",...}}
+        {"type":"turn.completed","usage":{input_tokens, cached_input_tokens,
+                                          cache_write_input_tokens,
+                                          output_tokens, reasoning_output_tokens}}
+
+    item.type is one of agent_message, command_execution, mcp_tool_call,
+    error, reasoning. Three consequences the old parser got wrong:
+
+      * usage lives on turn.completed, NOT in a token_count event with
+        total_token_usage, so every token count was silently lost;
+      * shell calls arrive as command_execution, which matched none of the
+        old tool-name patterns, so Codex looked like it ran no shell at all;
+      * item.started and item.completed carry the SAME item id, so counting
+        both double-counts every call. Count completions only.
+
+    Codex reports no cost, only tokens (unchanged).
+    """
     tool_names: dict[str, int] = {}
     usage, rate, thread_id, errors = None, None, None, []
-
-    def visit(d: dict):
-        nonlocal usage, rate, thread_id
-        if d.get("type") == "token_count" or "total_token_usage" in d:
-            info = d.get("info") or d
-            if "total_token_usage" in info:
-                usage = info["total_token_usage"]
-            if d.get("rate_limits"):
-                rate = d["rate_limits"]
-        if isinstance(d.get("thread_id"), str) and thread_id is None:
-            thread_id = d["thread_id"]
-        t = d.get("type", "")
-        if t in ("function_call", "mcp_tool_call", "custom_tool_call", "local_shell_call") \
-                or t.endswith("tool_call"):
-            name = d.get("name") or d.get("tool") or t
-            tool_names[name] = tool_names.get(name, 0) + 1
-        if t == "error" or (isinstance(d.get("error"), dict)):
-            errors.append(json.dumps(d)[:500])
+    turns = 0
 
     for ev in lines:
-        _walk(ev, visit)
+        if not isinstance(ev, dict):
+            continue
+        t = ev.get("type", "")
+        if t == "thread.started" and thread_id is None:
+            thread_id = ev.get("thread_id")
+        elif t == "turn.started":
+            turns += 1
+        elif t == "turn.completed":
+            usage = ev.get("usage") or usage
+        elif t == "turn.failed":
+            errors.append(json.dumps(ev.get("error") or ev)[:500])
+        if ev.get("rate_limits"):
+            rate = ev["rate_limits"]
+        # Count each item once, on completion.
+        if t != "item.completed":
+            continue
+        item = ev.get("item") or {}
+        it = item.get("type")
+        if it == "mcp_tool_call":
+            # Namespaced so an MCP tool and a shell command cannot collide.
+            name = f"{item.get('server') or 'mcp'}__{item.get('tool') or '?'}"
+            tool_names[name] = tool_names.get(name, 0) + 1
+            if item.get("error"):
+                errors.append(f"{name}: {str(item['error'])[:300]}")
+        elif it == "command_execution":
+            tool_names["shell"] = tool_names.get("shell", 0) + 1
+        elif it == "file_change":
+            # Codex's write path. Not a shell command and not an MCP call, so
+            # it was invisible to every earlier pattern here -- a run that
+            # wrote files looked like it had used no write tool at all.
+            tool_names["file_change"] = tool_names.get("file_change", 0) + 1
+            for ch in item.get("changes") or []:
+                p = str(ch.get("path", ""))
+                if p and not p.startswith(str(dest)) and "/exclurad-mcp-leg-d/" not in p:
+                    errors.append(f"out-of-tree write: {ch.get('kind')} {p}")
+        elif it == "error":
+            errors.append(str(item.get("message") or item)[:500])
+
     last = dest / "last_message.txt"
     final_text = last.read_text() if last.exists() else None
     ok = rc == 0
@@ -453,7 +526,7 @@ def parse_codex(lines: list[dict], dest: Path, rc: int) -> dict:
         "init": {"session_id": thread_id, "harness_notes": CODEX_NOTES},
         "result": {
             "subtype": "success" if ok else "error_during_execution", "is_error": not ok,
-            "num_turns": None, "duration_ms": None, "total_cost_usd": None,
+            "num_turns": turns or None, "duration_ms": None, "total_cost_usd": None,
             "usage": None if usage is None else {
                 "input_tokens": usage.get("input_tokens"),
                 "output_tokens": usage.get("output_tokens"),
