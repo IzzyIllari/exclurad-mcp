@@ -232,23 +232,40 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-# NOTE (2026-09-09), OpenCode 1.18.28
+# NOTE (2026-09-09), OpenCode 1.18.28 -- server-error episodes
 # --------------------------------------------------------------------------
-# `opencode run --agent <name>` fails immediately (rc=1, ~0.6 s, a single
-# {"type":"error", "Unexpected server error"} event, nothing in the log)
-# whenever <name> is an agent defined in the local opencode.json. Interleaved,
-# same directory and config, same model: --agent legd 0/5, --agent build 5/5.
-# The identical config ran 30/30 in the pilot earlier the same day, so it is a
-# state change, not a config error; the binary did not update (1.18.28,
-# unchanged since Sep 4) and it is not disk, DB corruption, a leaked server
-# process, prompt content, cwd, env, stdin, stdout redirection or inter-run
-# delay -- all ruled out by bisection.
+# CORRECTION to the first version of this note, which called the failure
+# permanent and said the twelve-model run could not start. It is EPISODIC.
+# Within an episode `opencode run --agent <name>` fails in ~0.6 s (rc=1, one
+# {"type":"error", "Unexpected server error"} event, nothing in opencode.log)
+# whenever <name> is defined in the local opencode.json, while the built-in
+# `build` agent keeps working -- interleaved, one directory, one config, one
+# model: legd 0/5, build 5/5. Episodes lasted tens of minutes and then cleared
+# on their own: the same invocation later ran 30/30 clean, and the pilot had
+# already run 30/30 through one earlier the same day. So this degrades a run,
+# it does not prevent one.
 #
-# Two workarounds, neither free:
-#   * drop --agent  -- top-level tools/permission still apply (policy intact,
-#     confirmed by tool list and a refused /tmp write) but AgentConfig.maxSteps
-#     is lost, because the schema has no top-level step cap. Used here: probes
-#     are short, so the cap does not bind.
-#   * move the body onto the built-in `build` agent -- runs 5/5 but the tool
-#     restrictions are NOT applied (bash, task, webfetch, todowrite come back
-#     and the MCP tools disappear). Unsafe for a scored run; do not use.
+# Ruled out: binary version (1.18.28, unchanged since Sep 4), disk, DB
+# corruption, prompt content, cwd, env, stdin, stdout redirection, inter-run
+# delay, the mcp block, small_model, and the agent's name and body (a minimal
+# {mode, description} agent under a fresh name fails too).
+#
+# NOT established: the cause. Leading hypothesis is that affected runs are
+# served by an already-running OpenCode server which never loaded the
+# per-conversation opencode.json; it explains the two observations nothing
+# else does (sessions created while no log line is written, and a built-in
+# agent succeeding at the instant a config-defined one fails). It is untested
+# -- ps/lsof were only checked after episodes had ended, which is the wrong
+# order. run_leg_d.py now logs a ps snapshot per episode to settle it.
+#
+# The two workarounds are both unusable for a scored run, so waiting an
+# episode out is the only correct response:
+#   * drop --agent -- the top-level tools/permission blocks are not applied
+#     consistently (opus-5 and sonnet-5 got bash back, the MCP tools
+#     disappeared), apply_patch reports "completed" and writes nothing at all,
+#     and AgentConfig.maxSteps has no top-level equivalent so the step cap is
+#     lost too. It is used *here* only because a probe is short and its
+#     purpose is to enumerate tools, not to produce scored files.
+#   * move the body onto the built-in `build` agent -- runs 5/5 but the
+#     restrictions are silently ignored (bash, task, webfetch, todowrite come
+#     back, exclurad tools vanish). Never use for a scored run.

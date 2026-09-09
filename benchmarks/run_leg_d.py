@@ -493,6 +493,68 @@ class Throttle:
 THROTTLE = Throttle()
 
 
+# OpenCode "server error" episodes (2026-09-09). `opencode run --agent <name>`
+# can start failing in ~0.6 s with rc=1, a single {"type":"error", ...
+# "Unexpected server error"} event and nothing written to opencode.log, while
+# the built-in `build` agent keeps working in the same directory with the same
+# config (interleaved: legd 0/5, build 5/5). Episodes lasted tens of minutes
+# and cleared on their own; the identical config ran 30/30 before and after.
+# The cause is not established. The leading hypothesis is that these runs are
+# served by an already-running OpenCode server that never loaded the
+# per-conversation opencode.json — it fits every observation, including the
+# two nothing else explains: no log lines despite sessions being created, and
+# a built-in agent succeeding at the same instant a config-defined one fails.
+#
+# Untested when this was written, so the runner records rather than assumes:
+# every episode appends a ps snapshot to <out>/opencode_server_errors.log. If
+# those snapshots always show a stray server, the hypothesis is confirmed and
+# the fix belongs upstream of the retry.
+OPENCODE_SERVER_ERROR_SIG = "unexpected server error"
+SERVER_ERROR_BACKOFF = 300      # episodes outlast the 120 s rate-limit backoff
+MAX_SERVER_ERROR_WAITS = 4      # ~25 min of waiting before giving the cell up
+
+
+def opencode_processes() -> list[str]:
+    """ps snapshot of every opencode process, for the episode log."""
+    try:
+        out = subprocess.run(["ps", "-eo", "pid,etime,command"], capture_output=True,
+                             text=True, timeout=20).stdout
+    except Exception:  # noqa: BLE001
+        return []
+    return [ln.strip() for ln in out.splitlines()
+            if "opencode" in ln and "grep" not in ln and "run_leg_d" not in ln]
+
+
+def kill_stray_opencode_daemons(procs: list[str]) -> list[str]:
+    """Kill only long-lived `opencode serve`/`web` daemons.
+
+    Deliberately never touches an `opencode run`: under --parallel those are
+    this run's own sibling conversations, and killing one would destroy a
+    conversation to fix a different one. The runner never starts a daemon, so
+    anything matching here came from outside and is a legitimate suspect.
+    """
+    killed = []
+    for ln in procs:
+        if "opencode serve" not in ln and "opencode web" not in ln:
+            continue
+        try:
+            pid = int(ln.split(None, 1)[0])
+        except (ValueError, IndexError):
+            continue
+        try:
+            os.kill(pid, 15)
+            killed.append(ln)
+        except OSError:
+            pass
+    return killed
+
+
+def is_opencode_server_error(summary: dict) -> bool:
+    res = summary.get("result") or {}
+    return any(OPENCODE_SERVER_ERROR_SIG in str(e).lower()
+               for e in (res.get("errors") or []))
+
+
 def classify(summary: dict, last_rate_limit: dict | None) -> tuple[bool, float | None]:
     """(retryable, resume_at). Rate-limit rejections and API-side errors are
     retryable; max-turns, timeouts, and ordinary completions are outcomes."""
@@ -517,7 +579,9 @@ def run_one(job: dict, cfg: argparse.Namespace, lock: threading.Lock) -> dict:
     dest = cfg.out / model / condition / f"rep{rep}" / task["id"]
     if cfg.resume and (dest / "result.json").exists():
         return {"tag": tag, "skipped": True}
-    for attempt in range(1, cfg.max_attempts + 1):
+    attempt, budget_used, episode_waits = 0, 0, 0
+    while budget_used < cfg.max_attempts:
+        attempt += 1
         THROTTLE.wait()
         out = run_attempt(job, cfg, lock, attempt)
         if cfg.dry_run:
@@ -525,8 +589,38 @@ def run_one(job: dict, cfg: argparse.Namespace, lock: threading.Lock) -> dict:
         retry, resume_at = classify(out["summary"], out["last_rate_limit"])
         if not retry:
             return out
-        if attempt < cfg.max_attempts:
-            when = resume_at or (time.time() + 120 * attempt)
+
+        # An OpenCode server-error episode is a property of the machine, not of
+        # this conversation, so it must not spend the attempt budget: episodes
+        # ran longer than the three normal attempts would survive, which would
+        # otherwise write off a whole cell over a transient.
+        if is_opencode_server_error(out["summary"]) and episode_waits < MAX_SERVER_ERROR_WAITS:
+            episode_waits += 1
+            procs = opencode_processes()
+            killed = kill_stray_opencode_daemons(procs)
+            when = time.time() + SERVER_ERROR_BACKOFF * episode_waits
+            log = cfg.out / "opencode_server_errors.log"
+            with lock:
+                log.parent.mkdir(parents=True, exist_ok=True)
+                with open(log, "a") as fh:
+                    fh.write(f"--- {dt.datetime.now().isoformat()} {tag} "
+                             f"attempt={attempt} wait={episode_waits}\n")
+                    fh.write("opencode processes at failure:\n")
+                    fh.write("".join(f"    {p}\n" for p in procs) or "    (none)\n")
+                    fh.write("".join(f"  KILLED daemon: {k}\n" for k in killed)
+                             or "  no stray serve/web daemon found\n")
+                print(f"  {tag}: opencode server-error episode "
+                      f"({len(procs)} opencode proc(s)"
+                      f"{', killed ' + str(len(killed)) + ' daemon(s)' if killed else ''}); "
+                      f"waiting until "
+                      f"{dt.datetime.fromtimestamp(when).strftime('%H:%M:%S')} "
+                      f"(does not count against --max-attempts)", flush=True)
+            THROTTLE.pause_until(when + 5)
+            continue
+
+        budget_used += 1
+        if budget_used < cfg.max_attempts:
+            when = resume_at or (time.time() + 120 * budget_used)
             THROTTLE.pause_until(when + 5)
             with lock:
                 print(f"  {tag}: attempt {attempt} not scoreable "
