@@ -34,7 +34,7 @@ class ChannelConfig:
 
 COMMON_QUIRKS = (
     "cos(theta*) must not be exactly +/-1.0; use +/-0.999 (integration fails at the poles)",
-    "input files are limited to 10 kinematic points (Fortran reader limit); chunk larger grids",
+    "this tool writes at most 10 kinematic points per input file (a convention of this tool, not a limit of the Fortran, whose reader accepts up to npoimax=10000); larger grids are chunked automatically",
     "the input format requires two blank lines between the header block and the points block",
     "a trailing '0error detected by nag library routine d01fce - ifail = 2' line appears in "
     "known-good inputs; it is inert but kept for byte-compatibility with validated files",

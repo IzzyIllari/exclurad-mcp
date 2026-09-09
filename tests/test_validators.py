@@ -43,6 +43,23 @@ class TestCosTheta:
     def test_beyond_safe_limit_warns(self):
         assert check_cos_theta(pt(cos=0.9995)).level == WARN
 
+    def test_not_a_cosine_fails_without_clamp_advice(self):
+        # |cos| > 1 is ill-posed, not the pole case: the suggestion must not
+        # coach a caller into clamping (leg D, 2026-09-08/09: agents obeyed it)
+        r = check_cos_theta(pt(cos=1.3))
+        assert r.level == FAIL
+        assert "not a cosine" in r.message
+        assert "Do not clamp" in r.suggestion
+        assert "0.999" not in r.suggestion
+
+    def test_exact_pole_still_suggests_clamp(self):
+        assert "0.999" in check_cos_theta(pt(cos=1.0)).suggestion
+
+    def test_below_threshold_does_not_coach_a_shift(self):
+        r = check_w_threshold(pt(w=1.40), ETA)
+        assert r.level == FAIL
+        assert "Do not shift W" in r.suggestion
+
     def test_clamped_value_passes(self):
         assert check_cos_theta(pt(cos=0.999)).level == PASS
         assert check_cos_theta(pt(cos=-0.999)).level == PASS

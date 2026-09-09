@@ -50,7 +50,9 @@ def check_w_threshold(pt: KinematicPoint, ch: ChannelConfig) -> CheckResult:
             "w_threshold", FAIL,
             f"W = {pt.w:.4f} GeV is below the {ch.reaction} threshold ({thr:.4f} GeV); "
             "the final state cannot be produced.",
-            f"Use W >= {thr + NEAR_THRESHOLD_MARGIN:.4f} GeV.",
+            "Do not shift W to compensate: the request is unphysical, not misformatted. "
+            f"Report it to the user (a valid grid for this channel starts at "
+            f"W >= {thr + NEAR_THRESHOLD_MARGIN:.4f} GeV).",
         )
     if pt.w < thr + NEAR_THRESHOLD_MARGIN:
         return CheckResult(
@@ -64,7 +66,13 @@ def check_w_threshold(pt: KinematicPoint, ch: ChannelConfig) -> CheckResult:
 
 def check_cos_theta(pt: KinematicPoint) -> CheckResult:
     c = pt.cos_theta
-    if abs(c) >= 1.0:
+    if abs(c) > 1.0:
+        return CheckResult(
+            "cos_theta", FAIL,
+            f"cos(theta*) = {c} is not a cosine (|cos| > 1); the request is ill-posed.",
+            "Do not clamp: this is not the pole case. Report it to the user.",
+        )
+    if abs(c) == 1.0:
         return CheckResult(
             "cos_theta", FAIL,
             f"cos(theta*) = {c} — the code cannot evaluate exactly at the poles.",

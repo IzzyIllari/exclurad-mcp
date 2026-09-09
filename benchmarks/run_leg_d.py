@@ -823,6 +823,28 @@ def score_dir(run_dir: Path, python: str) -> dict:
     return json.loads((run_dir / "scores.json").read_text())
 
 
+def server_installed(server_bin: Path) -> dict:
+    """Version and module path of the exclurad_mcp package the server binary
+    actually imports (its interpreter, from the shebang), so a run records
+    v0.1.0 vs v0.1.1 even when the checkout and the installed package differ."""
+    try:
+        first = Path(server_bin).read_text(errors="replace").splitlines()[0]
+    except (OSError, IndexError):
+        return {"version": None, "module": None}
+    if not first.startswith("#!"):
+        return {"version": None, "module": None}
+    interp = first[2:].split()[0]
+    try:
+        out = subprocess.run(
+            [interp, "-c", "import exclurad_mcp as m; print(m.__version__); print(m.__file__)"],
+            capture_output=True, text=True, timeout=30)
+        lines = out.stdout.strip().splitlines()
+        return {"version": lines[0] if lines else None,
+                "module": lines[1] if len(lines) > 1 else None}
+    except Exception as exc:  # noqa: BLE001
+        return {"version": None, "module": None, "error": str(exc)}
+
+
 def harness_binary(agent: str) -> dict:
     """Resolved path and sha256 of the harness executable, for provenance."""
     exe = shutil.which(agent)
@@ -942,6 +964,7 @@ def main() -> None:
         "eta_checkout": {"path": str(cfg.eta_src), **git_info(cfg.eta_src)},
         "pion_checkout": {"path": str(cfg.pion_src), **git_info(cfg.pion_src)},
         "server_bin": str(cfg.server_bin),
+        "server_installed": server_installed(cfg.server_bin),
         "machine": {"platform": platform.platform(), "machine": platform.machine(),
                     "python": platform.python_version()},
         "max_turns": cfg.max_turns, "timeout_seconds": cfg.timeout, "parallel": cfg.parallel,

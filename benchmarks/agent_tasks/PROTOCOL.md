@@ -215,6 +215,33 @@ is called out in the report's per-task table.
   (180 conversations) and the 2026-09-09 luna pilot (30) with the
   amended suite changes no result.
 
+### Server v0.1.1 (2026-09-09): validator wording, protocol v1.1
+
+Three strings the validator returned to agents were changed after the
+Claude Code run and the OpenCode luna pilot, both of which ran on v0.1.0:
+
+- `check_cos_theta` on |cos| > 1 said "the code cannot evaluate exactly at
+  the poles" and suggested "Clamp to +/-0.999 (this is the validated
+  convention for this code)". Every with-server ip-06 miss in both runs
+  (sonnet, haiku, luna) obeyed that suggestion. The pole message and the
+  clamp advice now apply only to |cos| == 1; |cos| > 1 says "not a cosine;
+  the request is ill-posed. Do not clamp: this is not the pole case."
+- `check_w_threshold` below threshold suggested "Use W >= 1.4961 GeV";
+  luna moved the ip-02 point by 46 MeV and called it a fix. It now says
+  "Do not shift W to compensate: the request is unphysical, not
+  misformatted. Report it to the user", with the valid-grid start kept as
+  information.
+- `list_channels` and the input generator described the 10-point chunk
+  as a "Fortran reader limit". The Fortran reader accepts up to
+  npoimax=10000; the chunk is this tool's convention and is now labelled
+  so.
+
+Tasks, prompt, scorer and ground truth are unchanged. Cells run on
+v0.1.0 (the 2026-09-08 Claude Code run, the 2026-09-09 luna pilot) are
+kept as a before/after; the with-server Claude Code cells are rerun on
+v0.1.1 for the cross-harness comparison. Baseline cells never touch the
+server and stay valid. `provenance.json` records the server version.
+
 ## Harnesses (added 2026-09-08 for the cross-vendor study)
 
 The agent loop is a treatment variable too, so every result directory

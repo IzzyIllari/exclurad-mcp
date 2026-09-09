@@ -2,7 +2,8 @@
 
 Format quirks reproduced deliberately (all load-bearing):
   - exactly two blank lines between the header block and the points block;
-  - at most 10 points per file (Fortran reader limit) with automatic chunking;
+  - at most 10 points per file (this tool's convention; the Fortran reader
+    accepts up to npoimax=10000) with automatic chunking;
   - the inert trailing '0error detected by nag library routine ...' line that
     appears in every known-good input.
 """
@@ -46,7 +47,7 @@ def render_input(header: InputHeader, points: list[KinematicPoint]) -> str:
         raise ValueError("No kinematic points supplied.")
     if len(points) > MAX_POINTS_PER_FILE:
         raise ValueError(
-            f"{len(points)} points exceed the Fortran reader limit of "
+            f"{len(points)} points exceed this tool's per-file limit of "
             f"{MAX_POINTS_PER_FILE}; use generate_input_files() which chunks automatically."
         )
     n = len(points)
