@@ -499,16 +499,22 @@ THROTTLE = Throttle()
 # the built-in `build` agent keeps working in the same directory with the same
 # config (interleaved: legd 0/5, build 5/5). Episodes lasted tens of minutes
 # and cleared on their own; the identical config ran 30/30 before and after.
-# The cause is not established. The leading hypothesis is that these runs are
-# served by an already-running OpenCode server that never loaded the
-# per-conversation opencode.json — it fits every observation, including the
-# two nothing else explains: no log lines despite sessions being created, and
-# a built-in agent succeeding at the same instant a config-defined one fails.
 #
-# Untested when this was written, so the runner records rather than assumes:
-# every episode appends a ps snapshot to <out>/opencode_server_errors.log. If
-# those snapshots always show a stray server, the hypothesis is confirmed and
-# the fix belongs upstream of the retry.
+# The cause is still not established, but the stray-server hypothesis this
+# code was first written to test is now REFUTED (2026-09-09), four ways:
+#   1. `opencode run` only talks to an external server when given --attach,
+#      which this runner never passes; --port defaults to a random port.
+#   2. During a run, ps shows exactly one opencode process, no child server
+#      and no listening socket — the server is in-process.
+#   3. With an `opencode serve` daemon deliberately running, --agent legd
+#      succeeded 3/3 (and 1/1 before it started, 1/1 after it was killed).
+#   4. Forcing the exact condition the hypothesis described — attaching to a
+#      server that never loaded the config and asking for --agent legd —
+#      does NOT produce this signature. See AGENT_FALLBACK_SIG below.
+# So a stray daemon is not a suspect, and the runner no longer kills one: it
+# would be destroying an unrelated process the user started. The ps snapshot
+# is still recorded per episode, because it costs nothing and the real cause
+# is still open.
 OPENCODE_SERVER_ERROR_SIG = "unexpected server error"
 SERVER_ERROR_BACKOFF = 300      # episodes outlast the 120 s rate-limit backoff
 MAX_SERVER_ERROR_WAITS = 4      # ~25 min of waiting before giving the cell up
@@ -525,34 +531,30 @@ def opencode_processes() -> list[str]:
             if "opencode" in ln and "grep" not in ln and "run_leg_d" not in ln]
 
 
-def kill_stray_opencode_daemons(procs: list[str]) -> list[str]:
-    """Kill only long-lived `opencode serve`/`web` daemons.
-
-    Deliberately never touches an `opencode run`: under --parallel those are
-    this run's own sibling conversations, and killing one would destroy a
-    conversation to fix a different one. The runner never starts a daemon, so
-    anything matching here came from outside and is a legitimate suspect.
-    """
-    killed = []
-    for ln in procs:
-        if "opencode serve" not in ln and "opencode web" not in ln:
-            continue
-        try:
-            pid = int(ln.split(None, 1)[0])
-        except (ValueError, IndexError):
-            continue
-        try:
-            os.kill(pid, 15)
-            killed.append(ln)
-        except OSError:
-            pass
-    return killed
-
-
 def is_opencode_server_error(summary: dict) -> bool:
     res = summary.get("result") or {}
     return any(OPENCODE_SERVER_ERROR_SIG in str(e).lower()
                for e in (res.get("errors") or []))
+
+
+# The dangerous failure is the quiet one. If OpenCode cannot resolve the agent
+# named by --agent it does not fail: it prints this to stderr, falls back to
+# the DEFAULT agent, and exits 0. The default agent has bash enabled, no
+# maxSteps cap and none of the tool gates, so such a conversation looks like a
+# clean result while having run under the wrong condition entirely. Verified
+# 2026-09-09 by attaching to a server with no legd agent: rc=0, normal event
+# stream, the only signal this one line of stderr. Nothing else in the
+# pipeline reads stderr, so a scored run would have absorbed it silently.
+AGENT_FALLBACK_SIG = "not found. falling back to default agent"
+
+
+def agent_fallback_detected(dest: Path) -> bool:
+    """True if this conversation silently ran under the default agent."""
+    try:
+        return AGENT_FALLBACK_SIG in (dest / "stderr.txt").read_text(
+            errors="replace").lower()
+    except OSError:
+        return False
 
 
 def classify(summary: dict, last_rate_limit: dict | None) -> tuple[bool, float | None]:
@@ -597,7 +599,6 @@ def run_one(job: dict, cfg: argparse.Namespace, lock: threading.Lock) -> dict:
         if is_opencode_server_error(out["summary"]) and episode_waits < MAX_SERVER_ERROR_WAITS:
             episode_waits += 1
             procs = opencode_processes()
-            killed = kill_stray_opencode_daemons(procs)
             when = time.time() + SERVER_ERROR_BACKOFF * episode_waits
             log = cfg.out / "opencode_server_errors.log"
             with lock:
@@ -607,12 +608,8 @@ def run_one(job: dict, cfg: argparse.Namespace, lock: threading.Lock) -> dict:
                              f"attempt={attempt} wait={episode_waits}\n")
                     fh.write("opencode processes at failure:\n")
                     fh.write("".join(f"    {p}\n" for p in procs) or "    (none)\n")
-                    fh.write("".join(f"  KILLED daemon: {k}\n" for k in killed)
-                             or "  no stray serve/web daemon found\n")
                 print(f"  {tag}: opencode server-error episode "
-                      f"({len(procs)} opencode proc(s)"
-                      f"{', killed ' + str(len(killed)) + ' daemon(s)' if killed else ''}); "
-                      f"waiting until "
+                      f"({len(procs)} opencode proc(s)); waiting until "
                       f"{dt.datetime.fromtimestamp(when).strftime('%H:%M:%S')} "
                       f"(does not count against --max-attempts)", flush=True)
             THROTTLE.pause_until(when + 5)
@@ -726,13 +723,23 @@ def run_attempt(job: dict, cfg: argparse.Namespace, lock: threading.Lock, attemp
         "n_tool_calls": n_tool_calls, "tool_calls": tool_names,
         "init": init, "result": result, "final_text": parsed["final_text"],
     }
+    # Condition integrity: a conversation that fell back to the default agent
+    # ran with bash and no tool gates, so its result is not evidence about the
+    # condition it is filed under. Record it loudly rather than scoring it.
+    if cfg.agent == "opencode" and agent_fallback_detected(dest):
+        summary["agent_fallback"] = True
+        if result is not None:
+            result.setdefault("errors", []).append(
+                "agent fallback: ran under the default agent, tool gates not applied")
     if result is not None and result.get("duration_ms") is None:
         result["duration_ms"] = int(wall * 1000)
     (dest / "result.json").write_text(json.dumps(summary, indent=2))
     with lock:
         cost = summary["result"]["total_cost_usd"] if result else None
         turns = summary["result"]["num_turns"] if result else None
-        flag = "TIMEOUT" if timed_out else ("ok" if summary["outcome_json_present"] else "NO-OUTCOME")
+        flag = ("AGENT-FALLBACK" if summary.get("agent_fallback") else
+                "TIMEOUT" if timed_out else
+                ("ok" if summary["outcome_json_present"] else "NO-OUTCOME"))
         print(f"  {tag:60s} {wall:6.0f}s  turns={turns!s:>3}  cost=${cost or 0:.3f}  {flag}",
               flush=True)
     return {"tag": tag, "summary": summary, "last_rate_limit": last_rate_limit}

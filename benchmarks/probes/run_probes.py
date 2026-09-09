@@ -250,13 +250,25 @@ if __name__ == "__main__":
 # delay, the mcp block, small_model, and the agent's name and body (a minimal
 # {mode, description} agent under a fresh name fails too).
 #
-# NOT established: the cause. Leading hypothesis is that affected runs are
+# REFUTED (2026-09-09): the stray-server hypothesis -- that affected runs were
 # served by an already-running OpenCode server which never loaded the
-# per-conversation opencode.json; it explains the two observations nothing
-# else does (sessions created while no log line is written, and a built-in
-# agent succeeding at the instant a config-defined one fails). It is untested
-# -- ps/lsof were only checked after episodes had ended, which is the wrong
-# order. run_leg_d.py now logs a ps snapshot per episode to settle it.
+# per-conversation opencode.json. Tested directly instead of waiting for the
+# next episode, and it fails on every count:
+#   * `opencode run` reaches an external server only via --attach, which
+#     neither this driver nor run_leg_d.py passes; --port is random otherwise.
+#   * ps during a run shows one process, no child server, no listening socket.
+#   * with an `opencode serve` daemon deliberately up, --agent legd ran 3/3
+#     (1/1 before starting it, 1/1 after killing it).
+#   * forcing the described condition -- attach to a server that never loaded
+#     the config, ask for --agent legd -- gives rc=0 and a graceful
+#     `agent "legd" not found. Falling back to default agent` on stderr, which
+#     is not this signature at all.
+# That last one found a worse bug than the one being chased: the fallback is
+# silent in the event stream, so an ungated conversation exits 0 looking
+# clean. run_leg_d.py now fails such conversations (AGENT_FALLBACK_SIG).
+#
+# NOT established: the cause. run_leg_d.py still logs a ps snapshot per
+# episode, since the real explanation is still open.
 #
 # The two workarounds are both unusable for a scored run, so waiting an
 # episode out is the only correct response:
