@@ -240,19 +240,39 @@ def harness_effect_table(head: list[dict]) -> str:
     return "\n".join(lines)
 
 
+NO_OUTCOME = "no outcome.json written (timeout/turn cap/format)"
+IMPOSSIBLE = "proceeded on an impossible request"
+
+
 def taxonomy_rows(rows: list[dict]) -> list[dict]:
+    """report_leg_d.failure_taxonomy, then three refinements the cross-vendor
+    runs needed: the chat-text delivery failure split out of "no outcome",
+    the runner's terminal_reason label attached to "no outcome" rows that
+    carry one, and ip-04's sign-convention reinterpretation split out of
+    "proceeded on an impossible request" (luna with-server and gpt-5.6-sol
+    both read Q2 = -0.5 as signed q^2 and generated at +0.5)."""
     tax = failure_taxonomy(rows)
-    # split the chat-text delivery failure out of "no outcome.json"
     split: Counter = Counter()
     for (cond, cls, mode), n in tax.items():
         split[(cond, cls, mode)] = n
-    for r in rows:
-        if r["passed"] or not r["chat_text_outcome"]:
-            continue
-        key = (r["condition"], r["class"], "no outcome.json written (timeout/turn cap/format)")
+
+    def move(r: dict, src: str, dst: str) -> None:
+        key = (r["condition"], r["class"], src)
         if split[key] > 0:
             split[key] -= 1
-            split[(r["condition"], r["class"], "outcome emitted as chat text, not written to disk")] += 1
+            split[(r["condition"], r["class"], dst)] += 1
+
+    for r in rows:
+        if r["passed"]:
+            continue
+        probs = r["problems"]
+        if "no outcome.json" in probs:
+            if r["chat_text_outcome"]:
+                move(r, NO_OUTCOME, "outcome emitted as chat text, not written to disk")
+            elif r.get("terminal_reason") and r["terminal_reason"] not in ("completed", "success"):
+                move(r, NO_OUTCOME, f"no outcome.json: {r['terminal_reason']}")
+        elif r["task"] == "ip-04" and probs.startswith("direction:"):
+            move(r, IMPOSSIBLE, "reinterpreted Q2 < 0 as a sign convention and proceeded")
     out = [{"condition": c, "class": k, "mode": m, "n": n}
            for (c, k, m), n in split.items() if n > 0]
     out.sort(key=lambda x: (x["condition"], -x["n"], x["class"]))
