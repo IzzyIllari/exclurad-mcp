@@ -61,14 +61,33 @@ PROMPT = (
 # fixed while varying scale, which is what makes "does the server help small
 # models more?" a measurable question rather than a slogan.
 #
-# MODELS currently holds sweep 2b: the three models sweep 2 lost to gateway
-# ceilings that MODEL_LIMITS now caps, re-probed to see whether the cap is
-# enough. Set it back to the full sweep-2 list to re-run everything; rows
-# accumulate in tool_surface.csv either way, keyed by model.
+# MODELS is the full sweep-2 list: 16 entries covering every gateway model
+# sweep 1 did not, both SambaNova routes for gpt-oss-20b, and the models whose
+# gateway ceilings MODEL_LIMITS now caps. Rows accumulate in tool_surface.csv
+# keyed by model, so re-running a subset updates only those rows.
 MODELS = [
+    # Nemotron 3 ladder -- completes 30B (sweep 1) -> 120B (sweep 1) -> 550B
+    "darwin/darwin.NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4",
+    "darwin/darwin.NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4",
+    # gpt-oss ladder -- 20B on both SambaNova routes; 120B was sweep 1
+    "sambanova/sambanova.gpt-oss-20b",
+    "sambanova-circe/sambanova.gpt-oss-20b",
+    # Llama, 3B to 17B-MoE
+    "aiportal/llama3bv32instr",
     "aiportal/meta.llama3-70b-instruct-v1:0",
-    "aiportal/amazon.nova-pro-v1:0",
+    "darwin/darwin.Llama-4-Scout-17B-16E-Instruct",
+    "sambanova/sambanova.Llama-4-Maverick-17B-128E-Instruct",
+    # Mistral, 128B and 675B
+    "darwin/darwin.Mistral-Medium-3.5-128B",
     "sambanova/sambanova.Mistral-Large-3-675B-Instruct-2512",
+    # unclassified gateway models, no published size
+    "darwin/darwin.Muse-Glimmer-30B",
+    "darwin/darwin.Inkling-Small-NVFP4",
+    "darwin/darwin.Laguna-S-2.1-NVFP4",
+    "aiportal/amazon.nova-pro-v1:0",
+    # capped by run_leg_d.MODEL_LIMITS; both still make zero tool calls
+    "aiportal/meta.llama3-8b-instruct-v1:0",
+    "aiportal/mistral7b",
 ]
 
 WRITERS = ("apply_patch", "write", "edit", "patch", "multiedit")

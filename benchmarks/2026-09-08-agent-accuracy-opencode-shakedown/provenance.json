@@ -1,0 +1,110 @@
+{
+  "date": "2026-09-08",
+  "started_utc": "2026-09-08T21:52:37.213953+00:00",
+  "harness": "opencode",
+  "harness_version": "1.18.28",
+  "dry_run": false,
+  "harness_notes": null,
+  "suite": "benchmarks/agent_tasks/tasks.json",
+  "suite_version": 1,
+  "suite_sha256": "9ec34ce4ccad54d87dd57d04ef538dad6feadaa88ef0292f61e2e51edbf30be3",
+  "models": [
+    "aiportal/aws-gov.gpt-5.6-luna"
+  ],
+  "conditions": [
+    "with-server",
+    "baseline"
+  ],
+  "reps": 1,
+  "tasks": [
+    "wp-01",
+    "ip-04"
+  ],
+  "exclurad_mcp": {
+    "commit": "9341b924fdf247c635e1fc3a31fe9c97b1fd8157",
+    "dirty": true
+  },
+  "eta_checkout": {
+    "path": "/Users/izzyi/Documents/GitHub/IzzyIllari-exclurad/exclurad",
+    "commit": "145e2e1c97a245e6649db335ba18b2eb866ab65a",
+    "dirty": true
+  },
+  "pion_checkout": {
+    "path": "/Users/izzyi/Documents/GitHub/JeffersonLab-exclurad/exclurad",
+    "commit": "b6fda2ba036ab937a351fe23e48d034d671034a0",
+    "dirty": false
+  },
+  "server_bin": "/Users/izzyi/anaconda3/envs/exclurad/bin/exclurad-mcp",
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.12.13"
+  },
+  "max_turns": 25,
+  "timeout_seconds": 900,
+  "parallel": 2,
+  "max_attempts": 3,
+  "tool_policy": {
+    "tools_on": [
+      "read",
+      "write",
+      "glob",
+      "grep"
+    ],
+    "tools_off": [
+      "bash",
+      "webfetch",
+      "task",
+      "todowrite",
+      "skill",
+      "question",
+      "edit",
+      "apply_patch"
+    ],
+    "server_tools_off": [
+      "exclurad_run_exclurad",
+      "exclurad_smoke_test"
+    ],
+    "permission": {
+      "edit": "allow",
+      "bash": "deny",
+      "webfetch": "deny",
+      "external_directory": "deny"
+    },
+    "agent": "legd",
+    "pure": true,
+    "share": "disabled"
+  },
+  "baseline_trees": {
+    "eta": [
+      "exclurad.F",
+      "fint.F",
+      "mpintp.inc",
+      "spp.inc",
+      "Makefile",
+      "input.dat",
+      "examples/README.md",
+      "examples/input_single_chunk.dat",
+      "examples/input_multi_chunk.dat",
+      "README.md (repository top-level)"
+    ],
+    "pion": [
+      "exclurad.F",
+      "fint.F",
+      "mpintp.inc",
+      "spp.inc",
+      "Makefile",
+      "input.dat",
+      "README.md (repository top-level)"
+    ]
+  },
+  "prompt_template": "You are helping a nuclear physicist run the EXCLURAD radiative-corrections code. Request: {request}\n\nWhen you are done, write an `outcome.json` in the working directory: `{{\"action\": \"generate\" | \"fix_and_generate\" | \"generate_with_warning\" | \"refuse\", \"input_files\": [...], \"flags\": [...], \"explanation\": \"...\"}}`. Write any EXCLURAD input files you produce next to it. If the request is physically impossible, refuse and say why. If it needs a correction or carries a known risk, apply or flag it and explain.",
+  "system_append": {
+    "with-server": "An MCP server named `exclurad` is registered in this session; use its tools to validate kinematics and generate input files.",
+    "baseline": "The EXCLURAD Fortran source trees are in the working directory, read-only: ./eta (eta configuration, IzzyIllari fork) and ./pion (pi+ configuration, JeffersonLab upstream), each with exclurad.F, fint.F, *.inc, Makefile, README.md and a template input.dat. There is no compiler or shell available; you cannot build or run the code."
+  },
+  "work_root": "/Users/izzyi/.cache/exclurad-mcp-leg-d/2026-09-08-agent-accuracy-opencode-shakedown",
+  "known_leaks": [
+    "The user's global ~/.config/opencode config (providers) is merged under the per-conversation opencode.json; --pure skips plugins. Whether a global AGENTS.md/instructions file loads is to be verified with a probe conversation on the run machine."
+  ]
+}
