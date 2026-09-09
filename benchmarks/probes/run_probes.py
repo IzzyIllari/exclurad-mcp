@@ -23,6 +23,7 @@ tool_surface.csv, into this directory. Sequential by design: shared
 from __future__ import annotations
 
 import csv
+import datetime as dt
 import json
 import os
 import shutil
@@ -37,6 +38,7 @@ SCRATCH = Path.home() / ".cache/exclurad-mcp-leg-d/probes"  # not /tmp:
 # project and auto-rejects every write there (2026-09-09).
 LEAK = Path("/tmp/legd_leak.txt")  # the deliberate out-of-tree target
 TIMEOUT = 240
+SPACING = 30   # seconds between probes (stage-3 instruction)
 
 PROMPT = (
     "Do four things and report each: (1) list every tool you have, names "
@@ -68,26 +70,37 @@ def slug(model: str) -> str:
 
 
 def run_one(model: str, template: Path, attempts: int = 4) -> dict:
-    """Probe one model, retrying the transient OpenCode startup failure.
+    """Probe one model, retrying a genuinely transient gateway failure.
 
-    Seen 2026-09-09: `opencode run` sometimes exits 1 in ~0.9 s having
-    emitted a single {"type":"error", ... "Unexpected server error"} event
-    and nothing to the log at all — it dies before its own logger starts.
-    It arrives in clusters (a first sweep lost all 11 models; minutes later
-    12 consecutive runs succeeded) and is independent of the prompt, the
-    model, the working directory, env and inter-run delay, so it is not
-    rate limiting. run_leg_d.py already survives it via its own attempt
-    loop, which is why the 30-conversation pilot was clean; this probe
-    driver needs the same. Retried runs are the exception, not the rule.
+    The "Unexpected server error" that used to kill every model here was not
+    transient and is now fixed at the source (absolute --dir; see the NOTE at
+    the bottom). If it reappears the retry will not help, so it is logged
+    loudly instead: a server_error row means the invocation is wrong again,
+    not that the gateway is busy.
     """
     for i in range(attempts):
         row = _run_once(model, template)
         if row["rc"] == 0 or row["timed_out"] == "y":
             row["attempts"] = i + 1
             return row
+        if row.get("server_error") == "y":
+            # Fixed at the source; retrying cannot help. Fail fast and let the
+            # sweep log make it obvious rather than burning four attempts.
+            row["attempts"] = i + 1
+            return row
         time.sleep(4 * (i + 1))
     row["attempts"] = attempts
     return row
+
+
+def ps_snapshot() -> list[str]:
+    try:
+        out = subprocess.run(["ps", "-eo", "pid,etime,command"], capture_output=True,
+                             text=True, timeout=20).stdout
+    except Exception:  # noqa: BLE001
+        return []
+    return [ln.strip() for ln in out.splitlines()
+            if "opencode" in ln and "grep" not in ln and "run_probes" not in ln]
 
 
 def _run_once(model: str, template: Path) -> dict:
@@ -108,12 +121,15 @@ def _run_once(model: str, template: Path) -> dict:
     timed_out = False
     with open(out_path, "w") as out, open(err_path, "w") as err:
         proc = subprocess.Popen(
-            # No --agent: selecting the config-defined `legd` agent started
-            # failing hard on 2026-09-09 (see NOTE at the bottom of this file).
-            # The top-level tools/permission blocks enforce the same surface —
-            # verified identical to the stage-1 --agent legd probe.
-            ["opencode", "run", "--format", "json", "--pure",
-             "--model", model, "--dir", ".", PROMPT],
+            # --dir takes an ABSOLUTE path, never ".": opencode resolves a
+            # relative --dir against $PWD rather than the process's actual
+            # working directory, and subprocess.Popen(cwd=...) does not update
+            # PWD. See the NOTE at the bottom -- this was the whole bug.
+            # --agent legd matches run_leg_d.py exactly; dropping it silently
+            # loses the tool gates and the step cap, so a probe without it
+            # measures the wrong surface.
+            ["opencode", "run", "--format", "json", "--pure", "--agent", "legd",
+             "--model", model, "--dir", str(work), PROMPT],
             cwd=work, env=env, stdin=subprocess.DEVNULL, stdout=out, stderr=err,
             start_new_session=True)
         try:
@@ -134,6 +150,10 @@ def _run_once(model: str, template: Path) -> dict:
                 pass
 
     sid, tools_used, texts, errors = None, {}, [], []
+    server_error = any("unexpected server error" in json.dumps(ev).lower()
+                       for ev in events)
+    fallback = "not found. falling back to default agent" in \
+        err_path.read_text(errors="replace").lower()
     for ev in events:
         sid = sid or ev.get("sessionID")
         part = ev.get("part") or {}
@@ -185,9 +205,16 @@ def _run_once(model: str, template: Path) -> dict:
         "tmp_write_refused": "y" if not LEAK.exists() else "n",
         "list_channels_ok": "y" if tools_used.get(
             "exclurad_list_channels", {}).get("ok", 0) > 0 else "n",
-        "instructions_leaked": "n" if not any(
-            s in low for s in ("agents.md content", "additional instructions file")
-        ) else "y",
+        # Substring alone is a false positive: gemma answered "No other
+        # instructions or AGENTS.md content provided" and was scored as a leak
+        # (2026-09-09). Require the phrase AND the absence of a denial.
+        "instructions_leaked": "y" if (
+            any(s in low for s in ("agents.md content", "additional instructions file"))
+            and not any(n in low for n in (
+                "no other instruction", "no additional instruction", "no agents.md",
+                "not given any", "no instructions file", "none beyond",
+                "no other agents.md", "wasn't given", "was not given"))
+        ) else "n",
         "cost_usd": info.get("cost"),
         "wall_s": round(wall, 1),
         "rc": rc,
@@ -195,6 +222,10 @@ def _run_once(model: str, template: Path) -> dict:
         "n_tool_calls": sum(v["n"] for v in tools_used.values()),
         "tools_called": ";".join(sorted(tools_used)),
         "session_id": sid or "",
+        "server_error": "y" if server_error else "n",
+        # A silent fallback would mean the row describes the DEFAULT agent's
+        # surface, not legd's — the one failure that otherwise looks clean.
+        "agent_fallback": "y" if fallback else "n",
     }
 
 
@@ -204,14 +235,26 @@ def main() -> int:
         print("usage: run_probes.py <dir containing opencode.json + LEGD_CONDITION.md>")
         return 2
     SCRATCH.mkdir(parents=True, exist_ok=True)
+    pslog = HERE / "sweep_ps.log"
+    pslog.write_text(f"# opencode processes before each probe, {dt.datetime.now()}\n")
     rows = []
-    for m in MODELS:
-        print(f"probing {m} ...", flush=True)
+    for n, m in enumerate(MODELS):
+        if n:
+            time.sleep(SPACING)   # keep gateway load low and episodes distinguishable
+        procs = ps_snapshot()
+        with open(pslog, "a") as fh:
+            fh.write(f"--- {dt.datetime.now().isoformat()} before {m}\n")
+            fh.write("".join(f"    {p}\n" for p in procs) or "    (none)\n")
+        print(f"probing {m} ... ({len(procs)} opencode proc(s) alive)", flush=True)
         try:
             row = run_one(m, template)
         except Exception as exc:  # noqa: BLE001
             row = {"model": m, "writer_used": "ERROR", "error": str(exc)[:200]}
         rows.append(row)
+        if row.get("server_error") == "y":
+            with open(pslog, "a") as fh:
+                fh.write(f"!!! server-error episode on {m}; ps at failure:\n")
+                fh.write("".join(f"    {p}\n" for p in ps_snapshot()) or "    (none)\n")
         print(f"   -> writer={row.get('writer_used')} hello={row.get('hello_written')} "
               f"list_channels={row.get('list_channels_ok')} "
               f"cost={row.get('cost_usd')} {row.get('wall_s')}s "
@@ -219,7 +262,8 @@ def main() -> int:
         cols = ["model", "writer_used", "writer_named", "hello_written", "bash_absent",
                 "run_exclurad_absent", "tmp_write_refused", "list_channels_ok",
                 "instructions_leaked", "cost_usd", "wall_s", "rc", "timed_out",
-                "n_tool_calls", "tools_called", "attempts", "session_id"]
+                "n_tool_calls", "tools_called", "attempts", "server_error",
+                "agent_fallback", "session_id"]
         with open(HERE / "tool_surface.csv", "w", newline="") as fh:
             w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
             w.writeheader()
@@ -232,52 +276,39 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-# NOTE (2026-09-09), OpenCode 1.18.28 -- server-error episodes
+# NOTE (2026-09-09), OpenCode 1.18.28 -- "Unexpected server error" SOLVED
 # --------------------------------------------------------------------------
-# CORRECTION to the first version of this note, which called the failure
-# permanent and said the twelve-model run could not start. It is EPISODIC.
-# Within an episode `opencode run --agent <name>` fails in ~0.6 s (rc=1, one
-# {"type":"error", "Unexpected server error"} event, nothing in opencode.log)
-# whenever <name> is defined in the local opencode.json, while the built-in
-# `build` agent keeps working -- interleaved, one directory, one config, one
-# model: legd 0/5, build 5/5. Episodes lasted tens of minutes and then cleared
-# on their own: the same invocation later ran 30/30 clean, and the pilot had
-# already run 30/30 through one earlier the same day. So this degrades a run,
-# it does not prevent one.
+# Root cause: `opencode run` resolves a RELATIVE --dir against the $PWD
+# environment variable, not against the process's actual working directory.
+# subprocess.Popen(cwd=D) changes the child's cwd but leaves PWD pointing at
+# the parent, so `--dir .` sent opencode to the PARENT directory, where no
+# opencode.json defines the `legd` agent -- and `--agent legd` there dies with
+# the generic {"type":"error", ... "Unexpected server error"}.
 #
-# Ruled out: binary version (1.18.28, unchanged since Sep 4), disk, DB
-# corruption, prompt content, cwd, env, stdin, stdout redirection, inter-run
-# delay, the mcp block, small_model, and the agent's name and body (a minimal
-# {mode, description} agent under a fresh name fails too).
+# Proven by holding everything else fixed and toggling one thing at a time,
+# same model and same minute:
+#     Popen(cwd=D), --dir .                     rc=1 FAIL (3/3)
+#     Popen(cwd=D), --dir <absolute>            rc=0 ok
+#     Popen(cwd=D), --dir ., env PWD=D          rc=0 ok
+#     Popen(cwd=D), --dir ., no --agent         rc=0 ok
+#     zsh -c 'cd D && ... --dir .' from python  rc=0 ok
+# Ruled out along the way: env contents (parent and child environments were
+# byte-identical but for `_`), start_new_session, NO_COLOR, stdin, stdout to
+# file vs pipe, CLAUDE* variables, binary path, and directory recreation.
 #
-# REFUTED (2026-09-09): the stray-server hypothesis -- that affected runs were
-# served by an already-running OpenCode server which never loaded the
-# per-conversation opencode.json. Tested directly instead of waiting for the
-# next episode, and it fails on every count:
-#   * `opencode run` reaches an external server only via --attach, which
-#     neither this driver nor run_leg_d.py passes; --port is random otherwise.
-#   * ps during a run shows one process, no child server, no listening socket.
-#   * with an `opencode serve` daemon deliberately up, --agent legd ran 3/3
-#     (1/1 before starting it, 1/1 after killing it).
-#   * forcing the described condition -- attach to a server that never loaded
-#     the config, ask for --agent legd -- gives rc=0 and a graceful
-#     `agent "legd" not found. Falling back to default agent` on stderr, which
-#     is not this signature at all.
-# That last one found a worse bug than the one being chased: the fallback is
-# silent in the event stream, so an ungated conversation exits 0 looking
-# clean. run_leg_d.py now fails such conversations (AGENT_FALLBACK_SIG).
+# This also retires the "episodes" story in earlier versions of this note. The
+# failure was never intermittent. It was 100% reproducible from a Python
+# parent and 0% from a shell, and I had been mixing the two while bisecting:
+# shell tests (PWD correct) passed, driver runs (PWD stale) failed, and the
+# alternation looked like something coming and going on its own. It also
+# explains the one observation that seemed impossible -- the built-in `build`
+# agent working at the instant `legd` failed. In the wrong directory `build`
+# still exists and `legd` does not.
 #
-# NOT established: the cause. run_leg_d.py still logs a ps snapshot per
-# episode, since the real explanation is still open.
+# run_leg_d.py was never affected: it has always passed an absolute --dir.
+# That is why the 30-conversation pilot and every shakedown came out clean
+# while this driver failed every model it touched.
 #
-# The two workarounds are both unusable for a scored run, so waiting an
-# episode out is the only correct response:
-#   * drop --agent -- the top-level tools/permission blocks are not applied
-#     consistently (opus-5 and sonnet-5 got bash back, the MCP tools
-#     disappeared), apply_patch reports "completed" and writes nothing at all,
-#     and AgentConfig.maxSteps has no top-level equivalent so the step cap is
-#     lost too. It is used *here* only because a probe is short and its
-#     purpose is to enumerate tools, not to produce scored files.
-#   * move the body onto the built-in `build` agent -- runs 5/5 but the
-#     restrictions are silently ignored (bash, task, webfetch, todowrite come
-#     back, exclurad tools vanish). Never use for a scored run.
+# Still true, and still the reason --agent must stay: dropping it loses the
+# tool gates (bash and the MCP tools come back) and AgentConfig.maxSteps has
+# no top-level equivalent, so the step cap goes too.

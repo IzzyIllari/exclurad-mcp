@@ -566,28 +566,25 @@ class Throttle:
 THROTTLE = Throttle()
 
 
-# OpenCode "server error" episodes (2026-09-09). `opencode run --agent <name>`
-# can start failing in ~0.6 s with rc=1, a single {"type":"error", ...
-# "Unexpected server error"} event and nothing written to opencode.log, while
-# the built-in `build` agent keeps working in the same directory with the same
-# config (interleaved: legd 0/5, build 5/5). Episodes lasted tens of minutes
-# and cleared on their own; the identical config ran 30/30 before and after.
+# OpenCode "Unexpected server error" (2026-09-09) -- SOLVED, and this runner
+# was never affected. `opencode run` resolves a RELATIVE --dir against the
+# $PWD environment variable rather than the process's real working directory.
+# subprocess.Popen(cwd=D) sets the child's cwd but leaves PWD pointing at the
+# parent, so `--dir .` sends opencode to the PARENT directory, where no
+# opencode.json defines the `legd` agent, and `--agent legd` there dies with a
+# generic {"type":"error", ... "Unexpected server error"}.
 #
-# The cause is still not established, but the stray-server hypothesis this
-# code was first written to test is now REFUTED (2026-09-09), four ways:
-#   1. `opencode run` only talks to an external server when given --attach,
-#      which this runner never passes; --port defaults to a random port.
-#   2. During a run, ps shows exactly one opencode process, no child server
-#      and no listening socket — the server is in-process.
-#   3. With an `opencode serve` daemon deliberately running, --agent legd
-#      succeeded 3/3 (and 1/1 before it started, 1/1 after it was killed).
-#   4. Forcing the exact condition the hypothesis described — attaching to a
-#      server that never loaded the config and asking for --agent legd —
-#      does NOT produce this signature. See AGENT_FALLBACK_SIG below.
-# So a stray daemon is not a suspect, and the runner no longer kills one: it
-# would be destroying an unrelated process the user started. The ps snapshot
-# is still recorded per episode, because it costs nothing and the real cause
-# is still open.
+# This runner has always passed an absolute --dir (see opencode_args), which
+# is why the 30-conversation pilot and every shakedown ran clean while
+# benchmarks/probes/run_probes.py -- which passed "." -- failed 100% of the
+# models it touched. The "episodes" in earlier versions of this comment were
+# an artefact of bisecting with a mix of shell-launched runs (PWD correct,
+# passed) and Python-launched runs (PWD stale, failed).
+#
+# The retry below is kept because it is cheap and a real gateway hiccup would
+# look similar, but it is no longer load-bearing, and it no longer kills any
+# process. If this signature ever fires here, suspect the invocation first:
+# with an absolute --dir it should be unreachable.
 OPENCODE_SERVER_ERROR_SIG = "unexpected server error"
 SERVER_ERROR_BACKOFF = 300      # episodes outlast the 120 s rate-limit backoff
 MAX_SERVER_ERROR_WAITS = 4      # ~25 min of waiting before giving the cell up
