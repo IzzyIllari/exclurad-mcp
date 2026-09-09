@@ -372,12 +372,27 @@ def parse_opencode(lines: list[dict], dest: Path, rc: int, env: dict) -> dict:
 
     export = None
     if session_id:
+        # `opencode export` truncates its stdout at ~64 KiB when stdout is a
+        # pipe, and still exits 0 — so capture_output=True loses the tail of
+        # any large session silently. Measured 2026-09-09 on one baseline
+        # session: 65 068 bytes through a pipe (invalid JSON, cut mid-string)
+        # vs 132 705 bytes redirected to a file (valid). It bit only the
+        # baseline conversations, whose transcripts are the large ones because
+        # the agent reads the Fortran sources. Redirect to the destination
+        # file and read it back. (`opencode run` is unaffected here: its
+        # stdout already goes straight to transcript.jsonl.)
+        target = dest / "session_export.json"
         try:
-            out = subprocess.run(["opencode", "export", session_id], capture_output=True,
-                                 text=True, timeout=120, env=env)
-            if out.returncode == 0 and out.stdout.strip():
-                export = json.loads(out.stdout[out.stdout.index("{"):])
-                (dest / "session_export.json").write_text(json.dumps(export, indent=2))
+            with open(target, "w") as fh:
+                rc_exp = subprocess.run(["opencode", "export", session_id], stdout=fh,
+                                        stderr=subprocess.DEVNULL, timeout=120,
+                                        env=env, stdin=subprocess.DEVNULL).returncode
+            if rc_exp != 0:
+                errors.append(f"export exited {rc_exp}")
+            else:
+                raw = target.read_text()
+                export = json.loads(raw[raw.index("{"):])
+                target.write_text(json.dumps(export, indent=2))
         except Exception as exc:  # noqa: BLE001
             errors.append(f"export failed: {exc}")
     info = (export or {}).get("info") or {}

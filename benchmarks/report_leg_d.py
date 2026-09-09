@@ -45,7 +45,11 @@ def wilson(k: int, n: int, z: float = 1.959964) -> tuple[float, float, float]:
     denom = 1 + z * z / n
     centre = (p + z * z / (2 * n)) / denom
     half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
-    return p, max(0.0, centre - half), min(1.0, centre + half)
+    # Clamp so lo <= p <= hi always holds. At k == n the interval's upper end
+    # evaluates to 1 - 1e-16, so hi - p came out negative and matplotlib
+    # rejected the error bar ("'yerr' must not contain negative values") —
+    # first hit on 2026-09-09 when a class scored a clean 4/4.
+    return p, min(p, max(0.0, centre - half)), max(p, min(1.0, centre + half))
 
 
 def fmt_ci(k: int, n: int) -> str:
