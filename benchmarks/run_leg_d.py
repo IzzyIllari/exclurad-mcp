@@ -823,6 +823,19 @@ def score_dir(run_dir: Path, python: str) -> dict:
     return json.loads((run_dir / "scores.json").read_text())
 
 
+def harness_binary(agent: str) -> dict:
+    """Resolved path and sha256 of the harness executable, for provenance."""
+    exe = shutil.which(agent)
+    if not exe:
+        return {"path": None, "resolved": None, "sha256": None}
+    resolved = Path(exe).resolve()
+    try:
+        digest = hashlib.sha256(resolved.read_bytes()).hexdigest()
+    except OSError:
+        digest = None
+    return {"path": exe, "resolved": str(resolved), "sha256": digest}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -830,6 +843,9 @@ def main() -> None:
                     help="harness that drives the conversation (default: Claude Code)")
     ap.add_argument("--models", nargs="+", default=MODELS,
                     help="model ids as the harness expects them (opencode: provider/model)")
+    ap.add_argument("--expect-harness-version", metavar="STR",
+                    help="refuse to run unless `<harness> --version` contains STR "
+                         "(pin the study to one harness build)")
     ap.add_argument("--dry-run", action="store_true",
                     help="prepare working dirs and configs, print argv, run nothing")
     ap.add_argument("--conditions", nargs="+", default=CONDITIONS, choices=CONDITIONS)
@@ -905,9 +921,18 @@ def main() -> None:
         hv = f"unavailable ({exc})"
         if not cfg.dry_run:
             sys.exit(f"{cfg.agent} not runnable here: {exc}")
+    # The harness binary is load-bearing (the 2026-09-09 OpenCode --dir/PWD
+    # behaviour is an implementation detail that can change on upgrade), so
+    # record what actually ran and refuse to run under a version other than
+    # the one the study was pinned to when --expect-harness-version is given.
+    binary = harness_binary(cfg.agent)
+    if cfg.expect_harness_version and cfg.expect_harness_version not in hv:
+        sys.exit(f"{cfg.agent} --version reports {hv!r}; study is pinned to "
+                 f"{cfg.expect_harness_version!r} (pass --expect-harness-version to change)")
     prov = {
         "date": today, "started_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "harness": cfg.agent, "harness_version": hv, "dry_run": cfg.dry_run,
+        "harness": cfg.agent, "harness_version": hv, "harness_binary": binary,
+        "dry_run": cfg.dry_run,
         "harness_notes": CODEX_NOTES if cfg.agent == "codex" else None,
         "suite": str(SUITE.relative_to(REPO)), "suite_version": suite["suite_version"],
         "suite_sha256": hashlib.sha256(SUITE.read_bytes()).hexdigest(),
