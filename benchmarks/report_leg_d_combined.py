@@ -63,9 +63,16 @@ def version_key(v: str) -> tuple:
 
 
 def chat_text_outcome(task_dir: Path) -> bool:
-    """No outcome.json, but the final assistant text carries the outcome JSON
-    (gpt-oss-120b did this in 40% of its conversations)."""
-    if (task_dir / "outcome.json").exists():
+    """No outcome.json anywhere the scorer would look, but the final assistant
+    text carries the outcome JSON (gpt-oss-120b did this in 40% of its
+    conversations).
+
+    Must use the scorer's own search: score_agent_run.find_outcome() also
+    accepts an outcome.json one level down (the baseline layout has ./eta and
+    ./pion subdirectories). A shallow exists() check here would have counted
+    a correctly-placed-but-nested outcome as a chat-text failure.
+    """
+    if (task_dir / "outcome.json").exists() or list(task_dir.glob("*/outcome.json")):
         return False
     res = task_dir / "result.json"
     if not res.exists():
