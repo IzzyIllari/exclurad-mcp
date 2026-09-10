@@ -1,0 +1,109 @@
+{
+  "date": "2026-09-09",
+  "started_utc": "2026-09-10T03:05:43.676012+00:00",
+  "harness": "codex",
+  "harness_version": "codex-cli 0.153.4",
+  "harness_binary": {
+    "path": "/Users/iillari/.local/bin/codex",
+    "resolved": "/Users/iillari/.codex/packages/standalone/releases/0.153.4-x86_64-apple-darwin/bin/codex",
+    "sha256": "88ecd2cbf8044832a49e7710394d9d328f7205fa5e8c8ebbdd015e002b4f6e21"
+  },
+  "dry_run": false,
+  "harness_notes": "shell available to the model (workspace-write sandbox: writes confined to the working directory); run_exclurad and smoke_test cannot be removed per tool; baseline framing says 'do not build or run' instead of 'no shell'; not protocol-equivalent to the claude/opencode cells",
+  "suite": "benchmarks/agent_tasks/tasks.json",
+  "suite_version": 1,
+  "suite_sha256": "21ee515822f1c51b10f9c615ecbf8684259244305aa4c30ef8b81ffc71e32acc",
+  "models": [
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna"
+  ],
+  "conditions": [
+    "with-server",
+    "baseline"
+  ],
+  "reps": 3,
+  "tasks": [
+    "wp-01",
+    "wp-02",
+    "wp-03",
+    "wp-04",
+    "wp-05",
+    "fx-01",
+    "fx-02",
+    "fx-03",
+    "fx-04",
+    "ip-01",
+    "ip-02",
+    "ip-03",
+    "ip-04",
+    "ip-05",
+    "ip-06"
+  ],
+  "exclurad_mcp": {
+    "commit": "0b9563213eead3131db4e75fa000a67429f17933",
+    "dirty": true
+  },
+  "eta_checkout": {
+    "path": "/Users/iillari/Documents/GitHub/exclurad/exclurad",
+    "commit": "145e2e1c97a245e6649db335ba18b2eb866ab65a",
+    "dirty": true
+  },
+  "pion_checkout": {
+    "path": "/Users/iillari/Documents/GitHub/JeffersonLab-exclurad/exclurad",
+    "commit": "b6fda2ba036ab937a351fe23e48d034d671034a0",
+    "dirty": false
+  },
+  "server_bin": "/Users/iillari/miniforge3/bin/exclurad-mcp",
+  "server_installed": {
+    "version": "0.1.1",
+    "module": "/Users/iillari/Documents/jlab/exclurad-mcp/src/exclurad_mcp/__init__.py"
+  },
+  "machine": {
+    "platform": "macOS-15.6.1-x86_64-i386-64bit-Mach-O",
+    "machine": "x86_64",
+    "python": "3.13.12"
+  },
+  "max_turns": 25,
+  "timeout_seconds": 900,
+  "parallel": 2,
+  "max_attempts": 3,
+  "tool_policy": {
+    "sandbox": "workspace-write",
+    "ignore_user_config": true,
+    "web_search": false,
+    "notes": "shell available to the model (workspace-write sandbox: writes confined to the working directory); run_exclurad and smoke_test cannot be removed per tool; baseline framing says 'do not build or run' instead of 'no shell'; not protocol-equivalent to the claude/opencode cells"
+  },
+  "baseline_trees": {
+    "eta": [
+      "exclurad.F",
+      "fint.F",
+      "mpintp.inc",
+      "spp.inc",
+      "Makefile",
+      "input.dat",
+      "examples/README.md",
+      "examples/input_single_chunk.dat",
+      "examples/input_multi_chunk.dat",
+      "README.md (repository top-level)"
+    ],
+    "pion": [
+      "exclurad.F",
+      "fint.F",
+      "mpintp.inc",
+      "spp.inc",
+      "Makefile",
+      "input.dat",
+      "README.md (repository top-level)"
+    ]
+  },
+  "prompt_template": "You are helping a nuclear physicist run the EXCLURAD radiative-corrections code. Request: {request}\n\nWhen you are done, write an `outcome.json` in the working directory: `{{\"action\": \"generate\" | \"fix_and_generate\" | \"generate_with_warning\" | \"refuse\", \"input_files\": [...], \"flags\": [...], \"explanation\": \"...\"}}`. Write any EXCLURAD input files you produce next to it. If the request is physically impossible, refuse and say why. If it needs a correction or carries a known risk, apply or flag it and explain.",
+  "system_append": {
+    "with-server": "An MCP server named `exclurad` is registered in this session; use its tools to validate kinematics and generate input files.",
+    "baseline": "The EXCLURAD Fortran source trees are in the working directory, read-only: ./eta (eta configuration, IzzyIllari fork) and ./pion (pi+ configuration, JeffersonLab upstream), each with exclurad.F, fint.F, *.inc, Makefile, README.md and a template input.dat. There is no compiler or shell available; you cannot build or run the code."
+  },
+  "work_root": "/Users/iillari/.cache/exclurad-mcp-leg-d/2026-09-09-agent-accuracy-codex",
+  "known_leaks": [
+    "The user's config.toml is ignored (--ignore-user-config); the model's own default instructions and the sandboxed shell remain."
+  ]
+}

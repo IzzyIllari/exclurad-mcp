@@ -424,14 +424,23 @@ def main() -> None:
            "| model | condition | mean cost (USD, list price) | total | mean turns | median duration (s) | timeouts | no outcome.json |",
            "|---|---|---|---|---|---|---|---|"]
     for s in summary:
+        # Codex records tokens but no price; show n/a rather than crash.
+        cm = f"{s['cost_mean_usd']:.3f}" if s['cost_mean_usd'] is not None else "n/a"
+        ct = f"{s['cost_total_usd']:.2f}" if s['cost_total_usd'] is not None else "n/a"
         md.append(f"| {SHORT.get(s['model'], s['model'])} | {s['condition']} | "
-                  f"{s['cost_mean_usd']:.3f} | {s['cost_total_usd']:.2f} | {s['turns_mean']} | "
+                  f"{cm} | {ct} | {s['turns_mean']} | "
                   f"{s['duration_median_s']} | {s['timeouts']} | {s['no_outcome']} |")
     for c in conditions:
         sub = [r for r in rows if r["condition"] == c and r["cost_usd"] is not None]
-        md.append(f"\nAll models, {c}: mean cost ${statistics.mean(r['cost_usd'] for r in sub):.3f}, "
-                  f"median duration {statistics.median(r['duration_s'] for r in sub):.0f} s, "
-                  f"total ${sum(r['cost_usd'] for r in sub):.2f} over {len(sub)} conversations.")
+        durs = [r["duration_s"] for r in rows if r["condition"] == c and r["duration_s"] is not None]
+        walls = [r["wall_s"] for r in rows if r["condition"] == c and r["wall_s"] is not None]
+        if sub:
+            md.append(f"\nAll models, {c}: mean cost ${statistics.mean(r['cost_usd'] for r in sub):.3f}, "
+                      f"median duration {statistics.median(r['duration_s'] for r in sub):.0f} s, "
+                      f"total ${sum(r['cost_usd'] for r in sub):.2f} over {len(sub)} conversations.")
+        else:
+            md.append(f"\nAll models, {c}: no price recorded by this harness (tokens only); "
+                      f"median wall {statistics.median(walls):.0f} s over {len(walls)} conversations.")
     md += ["", "## Bypass attempts (with-server only; the harness denied run_exclurad/smoke_test)", "",
            "| model | generate_input with skip_preflight=true | run_exclurad or smoke_test attempted | conversations |",
            "|---|---|---|---|"]
