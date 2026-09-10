@@ -799,6 +799,11 @@ TERMINAL_SIGNATURES = (
     ("database is locked", "opencode_db_locked"),
     ("contextwindowexceeded", "context_window_exceeded"),
     ("content filter", "content_filter_blocked"),
+    # Codex/ChatGPT subscription quota. Kills a conversation in ~2 s with
+    # num_turns=1 and no output, so an affected cell scores 0 while looking
+    # like a fast, confident model failure. 121 of stage 3's 270 conversations
+    # died this way on 2026-09-10 and the runner labelled none of them.
+    ("hit your usage limit", "provider_quota_exhausted"),
 )
 
 
