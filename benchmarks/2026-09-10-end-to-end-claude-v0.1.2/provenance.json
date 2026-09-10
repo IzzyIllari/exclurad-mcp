@@ -1,0 +1,117 @@
+{
+  "date": "2026-09-10",
+  "started_utc": "2026-09-10T13:56:41.607398+00:00",
+  "harness": "claude",
+  "harness_version": "2.1.267 (Claude Code)",
+  "harness_binary": {
+    "path": "/Users/iillari/.local/bin/claude",
+    "resolved": "/Users/iillari/.local/share/claude/versions/2.1.267",
+    "sha256": "071988cb2e5a4378d8543d78e0ff5f8ed1ecc5e113271774a0582ee74fb0ef79"
+  },
+  "dry_run": false,
+  "harness_notes": null,
+  "leg": "e2e",
+  "scorer": "benchmarks/score_e2e_run.py",
+  "suite": "benchmarks/agent_tasks/tasks_e2e.json",
+  "suite_version": 1,
+  "suite_sha256": "2976338709785af61e15f0c8737d999b10bbb89984d7ade8458be60135b8d9ad",
+  "models": [
+    "claude-sonnet-5",
+    "claude-haiku-4-5-20251001"
+  ],
+  "conditions": [
+    "with-server"
+  ],
+  "reps": 3,
+  "tasks": [
+    "e2e-01",
+    "e2e-02",
+    "e2e-03",
+    "e2e-04",
+    "e2e-05",
+    "e2e-06"
+  ],
+  "exclurad_mcp": {
+    "commit": "2236ab5fe6f77be8b2485e012f3041d09ccf8940",
+    "dirty": true
+  },
+  "eta_checkout": {
+    "path": "/Users/iillari/Documents/GitHub/exclurad/exclurad",
+    "commit": "145e2e1c97a245e6649db335ba18b2eb866ab65a",
+    "dirty": true
+  },
+  "pion_checkout": {
+    "path": "/Users/iillari/Documents/GitHub/JeffersonLab-exclurad/exclurad",
+    "commit": "b6fda2ba036ab937a351fe23e48d034d671034a0",
+    "dirty": false
+  },
+  "server_bin": "/Users/iillari/miniforge3/bin/exclurad-mcp",
+  "server_installed": {
+    "version": "0.1.2",
+    "module": "/Users/iillari/Documents/jlab/exclurad-mcp/src/exclurad_mcp/__init__.py"
+  },
+  "machine": {
+    "platform": "macOS-15.6.1-x86_64-i386-64bit-Mach-O",
+    "machine": "x86_64",
+    "python": "3.13.12"
+  },
+  "max_turns": 50,
+  "timeout_seconds": 1800,
+  "parallel": 2,
+  "max_attempts": 3,
+  "tool_policy": {
+    "permission_mode": "dontAsk",
+    "strict_mcp_config": true,
+    "restricted": true,
+    "builtin_tools": {
+      "with-server": [
+        "Read",
+        "Write",
+        "Glob",
+        "Grep"
+      ],
+      "baseline": [
+        "Read",
+        "Write",
+        "Glob",
+        "Grep",
+        "Bash"
+      ]
+    },
+    "with_server_allowed": [
+      "Read",
+      "Write",
+      "Glob",
+      "Grep",
+      "mcp__exclurad__*"
+    ],
+    "with_server_disallowed": []
+  },
+  "baseline_trees": {
+    "eta": [
+      "exclurad.F",
+      "fint.F",
+      "mpintp.inc",
+      "spp.inc",
+      "Makefile",
+      "input.dat",
+      "examples/README.md",
+      "examples/input_single_chunk.dat",
+      "examples/input_multi_chunk.dat",
+      "build/exclurad",
+      "maid07-PPpi.tbl",
+      "README.md (repository top-level)"
+    ]
+  },
+  "baseline_readonly": false,
+  "server_workdir": "per-conversation copy of build/exclurad + table",
+  "prompt_template": "You are helping a nuclear physicist run the EXCLURAD radiative-corrections code. Request: {request}\n\nWhen you are done, write an `outcome.json` in the working directory: `{{\"action\": \"computed\" | \"refused\" | \"failed\", \"results\": [{{\"w\": ..., \"q2\": ..., \"cos_theta\": ..., \"phi\": ..., \"delta\": ..., \"sigma_born\": ...}}, ...], \"input_files\": [...], \"output_files\": [...], \"explanation\": \"...\"}}`. Report delta and sigma_born exactly as EXCLURAD wrote them, without rounding. If the code does not produce a valid number for a point, put null for it and say why. If the request is physically impossible, refuse and say why.",
+  "system_append": {
+    "with-server": "An MCP server named `exclurad` is registered in this session; use its tools to validate kinematics, generate input files, run the code and parse its output.",
+    "baseline": "The EXCLURAD eta configuration (IzzyIllari fork) is in ./eta in the working directory: Fortran source, README.md, a template input.dat, the lookup table, and a prebuilt executable at ./eta/build/exclurad. You have a shell to run it. There is no compiler and no MCP server."
+  },
+  "work_root": "/Users/iillari/.cache/exclurad-mcp-leg-d/2026-09-10-end-to-end-claude-v0.1.2",
+  "known_leaks": [
+    "The CLI places the account email address and today's date in the model's context. With --restricted the global ~/.claude/CLAUDE.md does NOT load (verified with a probe conversation on 2026-09-08). Nothing in context mentions EXCLURAD or physics."
+  ]
+}
