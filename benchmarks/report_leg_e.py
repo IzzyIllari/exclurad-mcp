@@ -69,9 +69,28 @@ def beam_used(d: Path, harness: str, condition: str) -> float | None:
     return None
 
 
-def classify(problems: str, beam: float | None, notes: str) -> str:
+def rc_mode_used(d: Path) -> int | None:
+    """rc_mode the agent passed to generate_input (with-server only); 0 is
+    the full calculation the references were made with, 1 the factorised
+    leading-log approximation."""
+    t = d / "transcript.jsonl"
+    if not t.exists():
+        return None
+    import re
+    found = None
+    for line in t.read_text().splitlines():
+        if "generate_input" in line and "rc_mode" in line:
+            for m in re.findall(r'\\?"rc_mode\\?": ?(\d)', line):
+                found = int(m)
+    return found
+
+
+def classify(problems: str, beam: float | None, notes: str, rc_mode: int | None = None) -> str:
     if "no outcome.json" in problems:
         return "no outcome (timeout / turn cap)"
+    if rc_mode not in (None, 0) and ("chose failed" in problems or "missing" in problems
+                                      or "vs reference" in problems):
+        return f"asked for rc_mode={rc_mode} (leading-log), server reported NO_TAI"
     if beam is not None and abs(beam - BEAM_DEFAULT) > 1e-3:
         # a wrong beam energy explains a wrong number AND a finite delta at
         # the NaN-trap point (the NaN is specific to 6.53 GeV)
@@ -108,13 +127,14 @@ def load(run: Path) -> list[dict]:
                     r = res.get("result") or {}
                     problems = "; ".join(t["problems"])
                     beam = beam_used(d, harness, c) if not t["passed"] else None
+                    rcm = rc_mode_used(d) if (not t["passed"] and c == "with-server") else None
                     rows.append({
                         "harness": harness, "model": m, "model_short": short_model(m),
                         "server": server, "condition": c, "rep": int(rep_dir.name[3:]),
                         "task": t["id"], "class": t["class"], "passed": int(t["passed"]),
                         "problems": problems, "notes": "; ".join(t.get("notes") or []),
                         "run_evidence": int(bool(t.get("run_evidence"))),
-                        "mode": "" if t["passed"] else classify(problems, beam, ""),
+                        "mode": "" if t["passed"] else classify(problems, beam, "", rcm),
                         "cost_usd": r.get("total_cost_usd"), "num_turns": r.get("num_turns"),
                         "wall_s": res.get("wall_seconds"), "timed_out": int(bool(res.get("timed_out"))),
                         "tool_calls": json.dumps(res.get("tool_calls", {}), sort_keys=True),

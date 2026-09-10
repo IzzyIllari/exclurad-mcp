@@ -1,0 +1,110 @@
+{
+  "date": "2026-09-10",
+  "started_utc": "2026-09-10T05:13:13.728355+00:00",
+  "harness": "codex",
+  "harness_version": "codex-cli 0.153.4",
+  "harness_binary": {
+    "path": "/Users/iillari/.local/bin/codex",
+    "resolved": "/Users/iillari/.codex/packages/standalone/releases/0.153.4-x86_64-apple-darwin/bin/codex",
+    "sha256": "88ecd2cbf8044832a49e7710394d9d328f7205fa5e8c8ebbdd015e002b4f6e21"
+  },
+  "dry_run": false,
+  "harness_notes": "shell available to the model (workspace-write sandbox: writes confined to the working directory); run_exclurad and smoke_test cannot be removed per tool; baseline framing says 'do not build or run' instead of 'no shell'; not protocol-equivalent to the claude/opencode cells",
+  "leg": "e2e",
+  "scorer": "benchmarks/score_e2e_run.py",
+  "suite": "benchmarks/agent_tasks/tasks_e2e.json",
+  "suite_version": 1,
+  "suite_sha256": "2976338709785af61e15f0c8737d999b10bbb89984d7ade8458be60135b8d9ad",
+  "models": [
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna"
+  ],
+  "conditions": [
+    "with-server",
+    "baseline"
+  ],
+  "reps": 3,
+  "tasks": [
+    "e2e-01",
+    "e2e-02",
+    "e2e-03",
+    "e2e-04",
+    "e2e-05",
+    "e2e-06"
+  ],
+  "exclurad_mcp": {
+    "commit": "c1972482280846f9b43012044847ed009ed37684",
+    "dirty": true
+  },
+  "eta_checkout": {
+    "path": "/Users/iillari/Documents/GitHub/exclurad/exclurad",
+    "commit": "145e2e1c97a245e6649db335ba18b2eb866ab65a",
+    "dirty": true
+  },
+  "pion_checkout": {
+    "path": "/Users/iillari/Documents/GitHub/JeffersonLab-exclurad/exclurad",
+    "commit": "b6fda2ba036ab937a351fe23e48d034d671034a0",
+    "dirty": false
+  },
+  "server_bin": "/Users/iillari/miniforge3/bin/exclurad-mcp",
+  "server_installed": {
+    "version": "0.1.1",
+    "module": "/Users/iillari/Documents/jlab/exclurad-mcp/src/exclurad_mcp/__init__.py"
+  },
+  "machine": {
+    "platform": "macOS-15.6.1-x86_64-i386-64bit-Mach-O",
+    "machine": "x86_64",
+    "python": "3.13.12"
+  },
+  "max_turns": 50,
+  "timeout_seconds": 1800,
+  "parallel": 2,
+  "max_attempts": 3,
+  "tool_policy": {
+    "sandbox": "workspace-write",
+    "ignore_user_config": true,
+    "web_search": false,
+    "mcp_enabled_tools": [
+      "describe_build_slots",
+      "describe_outputs",
+      "generate_build",
+      "generate_input",
+      "list_channels",
+      "map_failures",
+      "parse_output",
+      "preflight_check",
+      "resolve_tables",
+      "run_exclurad",
+      "smoke_test"
+    ],
+    "notes": "shell available to the model (workspace-write sandbox: writes confined to the working directory); run_exclurad and smoke_test cannot be removed per tool; baseline framing says 'do not build or run' instead of 'no shell'; not protocol-equivalent to the claude/opencode cells"
+  },
+  "baseline_trees": {
+    "eta": [
+      "exclurad.F",
+      "fint.F",
+      "mpintp.inc",
+      "spp.inc",
+      "Makefile",
+      "input.dat",
+      "examples/README.md",
+      "examples/input_single_chunk.dat",
+      "examples/input_multi_chunk.dat",
+      "build/exclurad",
+      "maid07-PPpi.tbl",
+      "README.md (repository top-level)"
+    ]
+  },
+  "baseline_readonly": false,
+  "server_workdir": "per-conversation copy of build/exclurad + table",
+  "prompt_template": "You are helping a nuclear physicist run the EXCLURAD radiative-corrections code. Request: {request}\n\nWhen you are done, write an `outcome.json` in the working directory: `{{\"action\": \"computed\" | \"refused\" | \"failed\", \"results\": [{{\"w\": ..., \"q2\": ..., \"cos_theta\": ..., \"phi\": ..., \"delta\": ..., \"sigma_born\": ...}}, ...], \"input_files\": [...], \"output_files\": [...], \"explanation\": \"...\"}}`. Report delta and sigma_born exactly as EXCLURAD wrote them, without rounding. If the code does not produce a valid number for a point, put null for it and say why. If the request is physically impossible, refuse and say why.",
+  "system_append": {
+    "with-server": "An MCP server named `exclurad` is registered in this session; use its tools to validate kinematics, generate input files, run the code and parse its output.",
+    "baseline": "The EXCLURAD eta configuration (IzzyIllari fork) is in ./eta in the working directory: Fortran source, README.md, a template input.dat, the lookup table, and a prebuilt executable at ./eta/build/exclurad. You have a shell to run it. There is no compiler and no MCP server."
+  },
+  "work_root": "/Users/iillari/.cache/exclurad-mcp-leg-d/2026-09-10-end-to-end-codex",
+  "known_leaks": [
+    "The user's config.toml is ignored (--ignore-user-config); the model's own default instructions and the sandboxed shell remain."
+  ]
+}
