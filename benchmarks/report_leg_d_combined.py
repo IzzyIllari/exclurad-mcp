@@ -121,6 +121,9 @@ def cell_summary(rows: list[dict]) -> list[dict]:
                 "model_short": short_model(m),
                 "wall_median_s": round(statistics.median(walls), 1) if walls else None,
                 "chat_text_outcome": sum(r["chat_text_outcome"] for r in sub),
+                "input_tokens": sum(float(r["input_tokens"] or 0) for r in sub),
+                "cache_read_tokens": sum(float(r["cache_read_tokens"] or 0) for r in sub),
+                "output_tokens": sum(float(r["output_tokens"] or 0) for r in sub),
                 "run": sorted({r["run"] for r in sub})[0],
             })
             out.append(row)
@@ -279,6 +282,47 @@ def taxonomy_rows(rows: list[dict]) -> list[dict]:
     return out
 
 
+QUIRKS = [
+    ("fx-01", "cos θ* = ±1 must be clamped to ±0.999 (integrator pole)"),
+    ("wp-04", "grids over 10 points must be chunked across files"),
+    ("ip-04", "Q² < 0 is not electroproduction, not a sign convention"),
+    ("fx-04", "negative vcut switches the code's cut interpretation"),
+    ("fx-03", "φ* outside [0, 360] must be mapped"),
+    ("fx-02", "W within 10 MeV of threshold: integrator may hang, warn"),
+    ("ip-06", "|cos θ*| > 1 is not a cosine"),
+    ("wp-05", "π⁺ channel has its own threshold and table"),
+]
+
+
+def quirk_table(rows: list[dict]) -> str:
+    """Each fixable/trap task is one piece of tacit knowledge about the code;
+    show how often agents get it right with and without the server."""
+    lines = ["| task | what you have to know | baseline | with-server |", "|---|---|---|---|"]
+    for t, what in QUIRKS:
+        cells = []
+        for c in CONDITIONS[::-1]:
+            sub = [r for r in rows if r["task"] == t and r["condition"] == c]
+            cells.append(f"{sum(r['passed'] for r in sub)}/{len(sub)}" if sub else "-")
+        lines.append(f"| {t} | {what} | {cells[0]} | {cells[1]} |")
+    return "\n".join(lines)
+
+
+def cost_table(summary: list[dict]) -> str:
+    """Cost and tokens per cell, and cost per correct result. Cost is the
+    harness's list-price figure (Claude Code: CLI; OpenCode: its price table;
+    Codex: none, tokens only)."""
+    lines = ["| harness | model | condition | passes | cost | $ per correct result | "
+             "input tok | cache-read tok | output tok |", "|---|---|---|---|---|---|---|---|---|"]
+    for s in summary:
+        cost = s.get("cost_total_usd")
+        per = f"${cost / s['passed']:.3f}" if cost and s["passed"] else "-"
+        lines.append(f"| {s['harness_label']} | {s['model_short']} | {s['condition']} "
+                     f"| {s['passed']}/{s['n']} | {'$%.2f' % cost if cost is not None else 'n/a'} | {per} "
+                     f"| {s.get('input_tokens') or 0:,.0f} | {s.get('cache_read_tokens') or 0:,.0f} "
+                     f"| {s.get('output_tokens') or 0:,.0f} |")
+    return "\n".join(lines)
+
+
 def taxonomy_table(tax: list[dict]) -> str:
     lines = ["| condition | class | failure mode | n |", "|---|---|---|---|"]
     for t in tax:
@@ -372,6 +416,9 @@ def main() -> None:
         "## By task class", "", class_table(head), "",
         "## Same model, different harness", "", harness_effect_table(head), "",
         "## Server v0.1.0 → v0.1.1 (cells run on both)", "", before_after_table(head, old), "",
+        "## What you have to know about the code (per-quirk pass counts, headline cells pooled)", "",
+        quirk_table(head), "",
+        "## Cost and tokens per cell", "", cost_table(summary), "",
         "## Failure taxonomy (headline cells)", "", taxonomy_table(tax), "",
     ]
     (args.out / "tables.md").write_text("\n".join(md))
