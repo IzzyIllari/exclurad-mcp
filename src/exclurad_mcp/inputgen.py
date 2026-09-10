@@ -18,10 +18,45 @@ from .validators import KinematicPoint, MAX_POINTS_PER_FILE
 TRAILER = "0error detected by nag library routine   d01fce - ifail =     2\n"
 
 
+# The input file's second field. It is NOT a boolean: 0 is the full O(alpha)
+# calculation every validated result was produced with, 1 is the factorised
+# leading-log approximation. Leg E (2026-09-10) had a model pass rc_mode=1 in
+# 11 of 15 conversations while asking for the exact correction, so the tools
+# accept (and echo) these names.
+RC_MODES: dict[str, int] = {"full": 0, "leading_log": 1}
+RC_MODE_NAMES: dict[int, str] = {0: "full", 1: "leading_log"}
+RC_MODE_HELP = {
+    "full": "full O(alpha) radiative correction — what every validated eta and pi+ "
+            "result was produced with; prints the 'tai:' integration lines; "
+            "~50 s per point",
+    "leading_log": "factorizable + leading-log APPROXIMATION — ~1 s per point, but "
+                   "measured on the eta reference point (W=1.5576, Q2=0.5552, "
+                   "cos=0.6517, phi=72) it gives delta = 0.8493 against the full "
+                   "0.9160, a 7% difference, and returns NO radiative correction to "
+                   "the beam-spin asymmetry at all (A_obs = A_Born exactly). Use it "
+                   "for a fast survey, never as a substitute for an exact correction",
+}
+
+
+def resolve_rc_mode(value: "int | str") -> int:
+    """Accept 'full'/'leading_log' or the raw 0/1 the Fortran reads."""
+    if isinstance(value, str):
+        key = value.strip().lower().replace("-", "_").replace(" ", "_")
+        if key not in RC_MODES:
+            raise ValueError(
+                f"rc_mode '{value}' is not one of {sorted(RC_MODES)} "
+                "(0 = full, 1 = leading_log)."
+            )
+        return RC_MODES[key]
+    if value not in RC_MODE_NAMES:
+        raise ValueError(f"rc_mode {value} must be 0 (full) or 1 (leading_log).")
+    return int(value)
+
+
 @dataclass
 class InputHeader:
     model: int
-    rc_mode: int      # 0: full, 1: factorizable + leading log
+    rc_mode: int      # 0: full, 1: factorizable + leading log (see RC_MODES)
     bmom: float       # beam (lepton) momentum [GeV]
     tmom: float       # target momentum per nucleon
     lepton: int       # 1: electron, 2: muon
@@ -30,10 +65,11 @@ class InputHeader:
 
     @classmethod
     def for_channel(cls, ch: ChannelConfig, beam_gev: float | None = None,
-                    vcut: float | None = None, rc_mode: int = 0) -> "InputHeader":
+                    vcut: float | None = None,
+                    rc_mode: "int | str" = 0) -> "InputHeader":
         return cls(
             model=ch.model,
-            rc_mode=rc_mode,
+            rc_mode=resolve_rc_mode(rc_mode),
             bmom=beam_gev if beam_gev is not None else ch.default_beam_gev,
             tmom=0.0,
             lepton=1,

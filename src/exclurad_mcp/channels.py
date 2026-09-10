@@ -29,6 +29,13 @@ class ChannelConfig:
     default_beam_gev: float
     default_vcut: float
     repo: str
+    # Beam energies this channel has actually been run at, label -> E [GeV].
+    # `default_beam_gev` is whichever campaign the reference data came from,
+    # NOT the only valid choice: leg E (2026-09-10) showed an agent picking
+    # 10.6 GeV for "standard CLAS12 settings" — correct physics for RG-A, but
+    # a different answer from the 6.53 GeV RG-K reference. Callers should be
+    # told which one they got.
+    beam_energies: dict[str, float] = field(default_factory=dict)
     quirks: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -38,6 +45,13 @@ COMMON_QUIRKS = (
     "the input format requires two blank lines between the header block and the points block",
     "a trailing '0error detected by nag library routine d01fce - ifail = 2' line appears in "
     "known-good inputs; it is inert but kept for byte-compatibility with validated files",
+    "rc_mode (the input file's second field) is 0 = full O(alpha) or 1 = factorizable "
+    "leading-log; the approximation runs ~50x faster but differs by ~7% in delta and "
+    "returns zero radiative correction to the beam-spin asymmetry — every validated "
+    "result used mode 0",
+    "the beam energy is a free input, not a property of the channel: the default is "
+    "the campaign the reference data came from, and other CLAS12 energies (10.6, 10.2 GeV) "
+    "run fine and give different radiative corrections — always state which one you used",
     "unphysical kinematics can make the integrator hang forever (run with a timeout) or exit "
     "cleanly with no 'tai:' line in stdout (silent N/A) — both must be detected by the runner",
 )
@@ -56,6 +70,8 @@ CHANNELS: dict[str, ChannelConfig] = {
         "because the Fortran hardcodes it; the content is NOT MAID07 pion data",
         default_beam_gev=6.53,
         default_vcut=0.166,
+        beam_energies={"CLAS12 RG-K (the validated eta campaign)": 6.53,
+                       "CLAS12 RG-A": 10.6, "CLAS12 RG-B": 10.2},
         repo="https://github.com/IzzyIllari/exclurad",
         quirks=COMMON_QUIRKS + (
             "runs near the eta+p threshold (W ~ 1.486 GeV) are the most likely to hang or "
@@ -77,6 +93,7 @@ CHANNELS: dict[str, ChannelConfig] = {
         "the AO parametrization, no table)",
         default_beam_gev=5.75,
         default_vcut=0.05,
+        beam_energies={"CLAS 6 GeV era (the 2002 validation)": 5.75},
         repo="https://github.com/JeffersonLab/exclurad",
         quirks=COMMON_QUIRKS,
     ),

@@ -24,7 +24,8 @@ from mcp.server.fastmcp import FastMCP
 
 from .buildgen import list_slots, verify_against, write_build
 from .channels import CHANNELS, get_channel
-from .inputgen import InputHeader, generate_input_files
+from .inputgen import (RC_MODE_HELP, RC_MODE_NAMES, InputHeader,
+                       generate_input_files, resolve_rc_mode)
 from .outputs import (
     SCHEMAS,
     collect_results,
@@ -148,7 +149,7 @@ def generate_input(
     outdir: str,
     beam_gev: float | None = None,
     vcut: float | None = None,
-    rc_mode: int = 0,
+    rc_mode: int | str = "full",
     label: str = "rcgrid",
     skip_preflight: bool = False,
     work_dir: str | None = None,
@@ -156,7 +157,12 @@ def generate_input(
     """Write EXCLURAD input file(s) for the given kinematic points,
     byte-compatible with the validated input format (10-point chunking, blank
     lines, trailer line). Runs preflight first and refuses on FAIL unless
-    skip_preflight is set; a manifest.csv accompanies the files."""
+    skip_preflight is set; a manifest.csv accompanies the files.
+
+    beam_gev defaults to the campaign the channel's reference data came from,
+    not the only valid energy — the reply echoes which one was used and lists
+    the alternatives. rc_mode is "full" (the validated O(alpha) calculation)
+    or "leading_log" (a faster APPROXIMATION); 0/1 are accepted too."""
     ch = get_channel(channel)
     pts = _points(points)
     beam = beam_gev if beam_gev is not None else ch.default_beam_gev
@@ -182,8 +188,51 @@ def generate_input(
                 },
                 indent=2,
             )
-    header = InputHeader.for_channel(ch, beam_gev=beam, vcut=v, rc_mode=rc_mode)
+    try:
+        mode = resolve_rc_mode(rc_mode)
+    except ValueError as exc:
+        return json.dumps({"error": str(exc)}, indent=2)
+    header = InputHeader.for_channel(ch, beam_gev=beam, vcut=v, rc_mode=mode)
     result.update(generate_input_files(header, pts, outdir, label=label))
+    # Say what was actually written. Every one of these is a silent default
+    # that changes the numbers, and leg E showed agents getting them wrong
+    # without ever being told what they had chosen.
+    settings = {
+        "beam_gev": beam,
+        "beam_source": ("channel default" if beam_gev is None else "supplied by caller"),
+        "vcut_gev2": v,
+        "vcut_source": ("channel default" if vcut is None else "supplied by caller"),
+        "rc_mode": RC_MODE_NAMES[mode],
+        "rc_mode_meaning": RC_MODE_HELP[RC_MODE_NAMES[mode]],
+    }
+    notes = []
+    known = ch.beam_energies
+    if beam_gev is None and known:
+        settings["beam_alternatives_gev"] = known
+        notes.append(
+            f"Beam energy defaulted to {beam:g} GeV "
+            f"({next((k for k, e in known.items() if e == beam), 'channel default')}). "
+            "Other CLAS12 energies run fine and give DIFFERENT radiative corrections: "
+            + ", ".join(f"{k} = {e:g} GeV" for k, e in known.items() if e != beam)
+            + ". State the beam energy when you report these numbers."
+        )
+    elif beam_gev is not None:
+        match = next((k for k, e in known.items() if abs(e - beam) < 1e-6), None)
+        notes.append(
+            f"Beam energy {beam:g} GeV was supplied by the caller"
+            + (f" ({match})." if match else
+               f"; the channel default is {ch.default_beam_gev:g} GeV"
+               f" and known campaigns are "
+               + ", ".join(f"{k} = {e:g} GeV" for k, e in known.items()) + ".")
+        )
+    if mode != 0:
+        notes.append(
+            "rc_mode = leading_log: these files request the APPROXIMATE correction. "
+            "If an exact radiative correction was asked for, use rc_mode='full'."
+        )
+    result["settings_used"] = settings
+    if notes:
+        result["notes"] = notes
     return json.dumps(result, indent=2)
 
 

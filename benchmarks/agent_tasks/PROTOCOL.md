@@ -242,6 +242,44 @@ kept as a before/after; the with-server Claude Code cells are rerun on
 v0.1.1 for the cross-harness comparison. Baseline cells never touch the
 server and stay valid. `provenance.json` records the server version.
 
+### Server v0.1.2 (2026-09-10): three more interface defects the runs found
+
+The leg D Codex arm and both leg E runs surfaced three more places where the
+tool's interface, not the physics, decided the answer. All three are fixed in
+v0.1.2; tasks, prompts and scorers are unchanged.
+
+- **`check_q2_positive`** suggested "Use a positive Q2 ...". Every Codex
+  with-server ip-04 conversation (18/18, three models) read that as an
+  instruction, flipped the sign and generated at +0.5 with a "sign convention
+  corrected" flag; under OpenCode the same models refused 17/18. The
+  suggestion now says the request is ill-posed and must be reported, not
+  reinterpreted. This is the third such string, after the |cos|>1 clamp and
+  the below-threshold W shift fixed in v0.1.1.
+- **Silent defaults.** `generate_input` chose the beam energy and vcut without
+  saying so. In leg E, haiku passed `beam_gev=10.6` ("CLAS12 standard", which
+  is correct for RG-A) where the reference campaign is RG-K at 6.53, and
+  reported numbers that are right for a different beam. The tool now returns
+  `settings_used` (beam, vcut, rc_mode, and whether each came from the caller
+  or the channel) plus a note listing the channel's known campaign energies.
+  `ChannelConfig` gained `beam_energies`.
+- **`rc_mode`.** It takes 0 or 1 and reads like a boolean; gpt-5.6-luna passed
+  1 in 11 of 15 computable leg E conversations while asking for an exact
+  correction. It now accepts `"full"` / `"leading_log"` (0/1 still work),
+  rejects anything else, and the reply states which was used and what it
+  means. Measured on the eta reference point, leading-log gives delta 0.8493
+  against the full 0.9160 (7%) in 0.9 s against 50.8 s, and returns zero
+  radiative correction to the beam-spin asymmetry.
+- **The runner's success check.** `run_input_file` declared any run without a
+  `tai:` line to be the silent-N/A failure mode, but only the full mode prints
+  those lines, so every correct leading-log run was misclassified. It now
+  reads `rc_mode` back from the input file it was handed and judges
+  leading-log runs on their output files; `RunOutcome` carries `rc_mode`.
+  (In leg E this bug was load-bearing in luna's favour: it stopped an
+  approximate number being reported as an exact one.)
+
+Cells run on v0.1.2 are labelled by `provenance.json["server_installed"]`
+exactly as the v0.1.0 / v0.1.1 split is.
+
 ## Harnesses (added 2026-09-08 for the cross-vendor study)
 
 The agent loop is a treatment variable too, so every result directory

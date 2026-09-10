@@ -92,3 +92,13 @@ carries its own timeout. Leg D's retry rules apply unchanged.
 - Baseline agents must discover the output format from the Fortran
   `write` statements (`radtot.dat`: 10-column CSV, first column unused and
   always 0). Column confusion counts as a wrong number, which is the point.
+- **The beam energy is ambiguous in the prompt, deliberately.** e2e-02, -03
+  and -05 say "standard CLAS12 settings"; the reference rows are the RG-K
+  eta campaign at 6.53 GeV, but 10.6 GeV (RG-A) is equally standard, runs
+  fine, and gives different (correct) numbers. An agent that picks 10.6
+  produces a defensible answer that does not match the reference, and the
+  taxonomy labels it "wrong beam energy assumed" rather than a physics
+  error. The suite wording is NOT being changed: server v0.1.2 makes
+  `generate_input` state which energy it used and list the alternatives, and
+  keeping the prompt as it is tests whether that note is enough. Runs before
+  and after v0.1.2 are directly comparable on this task.

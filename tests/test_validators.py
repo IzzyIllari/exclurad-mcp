@@ -138,3 +138,15 @@ class TestInputFormat:
             raise AssertionError("expected ValueError for >10 points")
         except ValueError:
             pass
+
+
+class TestQ2Suggestion:
+    def test_negative_q2_does_not_tell_the_caller_to_flip_the_sign(self):
+        # leg D, 2026-09-09: every Codex with-server ip-04 conversation read
+        # "Use a positive Q2" as an instruction and generated at +0.5.
+        from exclurad_mcp.validators import check_q2_positive
+        r = check_q2_positive(pt(q2=-0.5))
+        assert r.level == FAIL
+        assert "Do not reinterpret the sign" in r.suggestion
+        assert "ill-posed" in r.suggestion
+        assert not r.suggestion.startswith("Use a positive Q2")

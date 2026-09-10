@@ -161,10 +161,12 @@ def check_q2_positive(pt: KinematicPoint) -> CheckResult:
     if pt.q2 <= 0.0:
         return CheckResult(
             "q2_positive", FAIL,
-            f"Q2 = {pt.q2} GeV^2 is not positive; electroproduction requires "
-            "spacelike photon virtuality Q2 > 0.",
-            "Use a positive Q2 (photoproduction Q2 = 0 is a different code path "
-            "this tool does not drive).",
+            f"Q2 = {pt.q2} GeV^2 is not positive; EXCLURAD's Q2 input is the "
+            "positive magnitude of the spacelike virtuality (Q2 = -q^2 > 0).",
+            "Do not reinterpret the sign on the user's behalf: the request as "
+            "written is ill-posed. Report it and ask which convention was meant "
+            "(photoproduction, Q2 = 0, is a different code path this tool does "
+            "not drive).",
         )
     return CheckResult("q2_positive", PASS, f"Q2 = {pt.q2} GeV^2 is positive.")
 

@@ -4,7 +4,9 @@ Failure taxonomy (mirrors run_exclurad_skip_unphys.sh, made machine-readable):
   OK           — ran, produced 'tai:' output and output files
   TIMEOUT      — integrator hung past the deadline (almost always unphysical kinematics)
   EXIT_NONZERO — crashed / NAG error propagated to the exit code
-  NO_TAI       — exited cleanly but produced no 'tai:' line: silent N/A result
+  NO_TAI       — exited cleanly but produced no result: silent N/A. For the full
+                 O(alpha) mode this is "no 'tai:' line"; the leading-log mode never
+                 prints 'tai:', so there success is judged on the output files.
   NO_OUTPUT    — 'tai:' seen but no output .dat files materialized
 """
 
@@ -14,7 +16,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 
 from .channels import ChannelConfig
-from .inputgen import InputHeader, render_input
+from .inputgen import RC_MODE_NAMES, InputHeader, render_input
 from .validators import KinematicPoint
 
 OUTPUT_KEYS = ("all", "allu", "radasm", "radcor", "radsigmi", "radsigpl", "radtot")
@@ -36,12 +38,31 @@ class RunOutcome:
     outputs: dict[str, str]  # output key -> collected file path
     nag_errors: list[str]
     diagnosis: str
+    rc_mode: str = "full"        # read back from the input file that was run
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-def _diagnose(status: str) -> str:
+def input_rc_mode(path: Path) -> int:
+    """Second list-directed record of an EXCLURAD input file: 0 full, 1 leading log.
+
+    The runner needs this because the success heuristic differs by mode; a
+    leading-log run that worked perfectly was classified NO_TAI before
+    2026-09-10 (leg E, gpt-5.6-luna).
+    """
+    try:
+        records = [ln for ln in path.read_text().splitlines() if ln.strip()]
+        return int(float(records[1].split()[0]))
+    except (OSError, IndexError, ValueError):
+        return 0
+
+
+def _diagnose(status: str, rc_mode: int = 0) -> str:
+    if status == NO_TAI and rc_mode != 0:
+        return ("Clean exit but no output rows — silent N/A. This input requested "
+                "rc_mode = leading_log, which never prints 'tai:' lines, so the "
+                "verdict is based on the output files being empty or absent.")
     return {
         OK: "Run succeeded.",
         TIMEOUT: "Integrator hung — this almost always means the kinematics are unphysical "
@@ -96,12 +117,14 @@ def run_input_file(
 
     nag_errors = [ln.strip() for ln in stdout.splitlines() if "nag library" in ln.lower()]
     tail = "\n".join(stdout.splitlines()[-15:])
+    rc_mode = input_rc_mode(target)
 
     if timed_out:
         status = TIMEOUT
     elif exit_code != 0:
         status = EXIT_NONZERO
-    elif "tai:" not in stdout:
+    elif rc_mode == 0 and "tai:" not in stdout:
+        # The validated full-mode signature. Kept exactly as it was.
         status = NO_TAI
     else:
         status = OK
@@ -121,6 +144,12 @@ def run_input_file(
                 collected_any = True
         if not collected_any:
             status = NO_OUTPUT
+        elif rc_mode != 0 and not Path(outputs.get("radtot", "/nonexistent")).exists():
+            status = NO_TAI
+        elif rc_mode != 0 and not Path(outputs["radtot"]).read_text().strip():
+            # leading-log ran but wrote nothing: the same silent N/A, detected
+            # on the file rather than on stdout
+            status = NO_TAI
 
     return RunOutcome(
         status=status,
@@ -130,7 +159,8 @@ def run_input_file(
         stdout_tail=tail,
         outputs=outputs,
         nag_errors=nag_errors,
-        diagnosis=_diagnose(status),
+        diagnosis=_diagnose(status, rc_mode),
+        rc_mode=RC_MODE_NAMES.get(rc_mode, str(rc_mode)),
     )
 
 
