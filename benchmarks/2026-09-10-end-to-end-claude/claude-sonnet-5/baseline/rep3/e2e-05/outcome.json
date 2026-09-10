@@ -1,0 +1,27 @@
+{
+  "action": "computed",
+  "results": [
+    {
+      "w": 1.54,
+      "q2": 1.3207,
+      "cos_theta": 0.341379,
+      "phi": 36.0,
+      "delta": null,
+      "sigma_born": 0.0008651649
+    }
+  ],
+  "input_files": [
+    "eta/input_run.dat",
+    "eta/input.dat (overwritten with input_run.dat content during the run; restored to the original template afterward)"
+  ],
+  "output_files": [
+    "eta/radtot.dat",
+    "eta/radcor.dat",
+    "eta/radasm.dat",
+    "eta/radsigpl.dat",
+    "eta/radsigmi.dat",
+    "eta/all.dat",
+    "eta/run.log"
+  ],
+  "explanation": "Ran ./build/exclurad with model=3 (EtaMAID), rc_mode=0 (Full O(alpha)), bmom=6.53 GeV, tmom=0, lepton=1 (electron), ivec=1 (recoil proton), vcut=0.166 GeV^2 -- the standard CLAS12 eta-channel settings documented in README.md -- for the single point W=1.54 GeV, Q2=1.3207 GeV2, cos(theta*)=0.341379, phi*=36 deg. This point is kinematically valid (W is above the p+eta threshold of ~1.486 GeV and cos(theta*) is in range), and the Born cross section was computed successfully: sigma_born = 0.0008651649 (EXCLURAD's internal units/normalization for sibar(1), column 7 of radtot.dat). However, the full radiative-tail integral (subroutine qqt, which numerically integrates the exact bremsstrahlung phase space via d01fce) returned NaN for the narrow collinear-peak sub-region around cos2 (printed as 'tai: 2 1 NaN NaN ...' in the log, for both the unpolarized and polarized structure-function sums). This NaN is fully deterministic and reproducible across repeated runs of the unmodified executable, so it is a genuine numerical breakdown of the adaptive integrator in that peaked region for this specific kinematic point, not an input or setup error. As a result delta = sig/sib (radtot.dat column 6) came out as NaN and is reported as null. Note: the executable ignores stdin/command-line redirection and always reads its input from a file literally named 'input.dat' in the working directory (hardcoded 'open(unit=5,file=\"input.dat\")' in exclurad.F); this was discovered when an initial '< input_run.dat' redirect silently ran the old template instead, so the requested kinematics were written into input.dat itself to run the job, and the original template was restored afterward."
+}

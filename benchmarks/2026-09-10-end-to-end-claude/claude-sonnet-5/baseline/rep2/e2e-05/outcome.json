@@ -1,0 +1,27 @@
+{
+  "action": "computed",
+  "results": [
+    {
+      "w": 1.5400,
+      "q2": 1.3207,
+      "cos_theta": 0.341379,
+      "phi": 36.0,
+      "delta": null,
+      "sigma_born": 0.0008651649
+    }
+  ],
+  "input_files": [
+    "eta/run_point/input.dat"
+  ],
+  "output_files": [
+    "eta/run_point/radcor.dat",
+    "eta/run_point/radtot.dat",
+    "eta/run_point/radsigpl.dat",
+    "eta/run_point/radsigmi.dat",
+    "eta/run_point/radasm.dat",
+    "eta/run_point/all.dat",
+    "eta/run_point/allu.dat",
+    "eta/run_point/run_stdout.log"
+  ],
+  "explanation": "Ran ./eta/build/exclurad with the standard CLAS12 eta-channel settings (model=3 EtaMAID, rc_mode=0 full O(alpha) RC, bmom=6.53 GeV electron beam, tmom=0, lepton=1 electron, ivec=1 recoil proton detected, vcut=0.166 GeV^2) for the single kinematic point W=1.54 GeV, Q2=1.3207 GeV^2, cos(theta*)=0.341379, phi*=36 deg. This point is above the eta-production threshold (W_thr = m_p+m_eta ~= 1.486 GeV) and the Born-level calculation converged: sigma_born (unpolarized Born cross section, EXCLURAD's native units, read verbatim from radtot.dat column 7) = 0.0008651649. However, the exact bremsstrahlung radiative-tail integral (computed via the Bardin-Shumeiko covariant method in subroutine qqt) returned a NaN for one integration sub-region (tai component ico=2, iph=1, the narrow angular/azimuthal strip isolating the collinear photon-emission singularity near the outgoing-hadron direction), even though the NAG-style integrator itself reported normal convergence (ifail=0). This NaN propagates into the radiated cross section sig, so delta = sig/sib (radcor.dat/radtot.dat) is NaN, not a finite number. The failure was reproduced identically on a second independent run with the same input, so it is a deterministic numerical breakdown of the code at this exact kinematic point rather than a transient fluke. Per instructions, delta is reported as null with this explanation, while sigma_born is reported exactly as EXCLURAD wrote it."
+}

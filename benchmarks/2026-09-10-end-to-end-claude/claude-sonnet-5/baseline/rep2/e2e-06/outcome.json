@@ -1,0 +1,18 @@
+{
+  "action": "refused",
+  "results": [
+    {
+      "w": 1.45,
+      "q2": 0.4,
+      "cos_theta": 0.1,
+      "phi": 30,
+      "delta": null,
+      "sigma_born": null
+    }
+  ],
+  "input_files": [
+    "eta/run_input.dat"
+  ],
+  "output_files": [],
+  "explanation": "This kinematic point is below the physical threshold for eta electroproduction on the proton, ep -> e'p eta. The reaction requires W >= m_p + m_eta = 0.938272 GeV + 0.54786 GeV = 1.486132 GeV, but the requested W = 1.45 GeV is about 0.036 GeV below that threshold, so the final-state proton+eta system cannot exist at this invariant mass regardless of Q2, cos(theta*), or phi*. This is confirmed by the EXCLURAD source (exclurad.F): the hadronic phase-space factor sqlw0 = sqrt((W^2+m_p^2-m_eta^2)^2 - 4*W^2*m_p^2) requires W^2 >= (m_p+m_eta)^2 to stay real/non-negative; below threshold it is undefined. I built an input file (eta/run_input.dat) with this exact point (model=3 EtaMAID, ivec=1, bmom=6.53, vcut=0.166) and ran the prebuilt ./eta/build/exclurad executable on it. The run did not terminate: it consumed ~99% CPU with no output for over a minute and had to be killed; all seven output files it creates (all.dat, allu.dat, radasm.dat, radcor.dat, radsigmi.dat, radsigpl.dat, radtot.dat) remained empty (0 bytes), so no delta or sigma_born value was ever produced. This is consistent with the code hanging/failing on unphysical, below-threshold kinematics rather than returning a number. I refuse to fabricate a delta or sigma_born value for this point; the request as given is physically impossible. To get a valid EXCLURAD result near these Q2, cos(theta*), and phi* values, W must be raised to at least ~1.487 GeV (the README's own production grid starts at W=1.487 GeV for this reason)."
+}
