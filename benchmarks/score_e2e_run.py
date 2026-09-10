@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 REFUSED, COMPUTED, FAILED = "refused", "computed", "failed"
@@ -157,21 +158,24 @@ def main() -> None:
     args = ap.parse_args()
     suite = json.loads(Path(args.suite).read_text())
     run = Path(args.run_dir)
-    out = []
-    for task in suite["tasks"]:
-        d = run / task["id"]
-        if not d.exists():
-            continue
-        s = score_task(task, d)
-        out.append(s)
-        flag = "PASS" if s["passed"] else "FAIL"
-        print(f"{task['id']:8s} {task['class']:11s} {flag}  {'; '.join(s['problems'])}")
-    n = sum(s["passed"] for s in out)
-    print(f"{n}/{len(out)} passed")
+    rows = [score_task(t, run / t["id"]) for t in suite["tasks"]]
+    by_class: dict[str, list] = {}
+    for r in rows:
+        by_class.setdefault(r["class"], []).append(r["passed"])
+    summary = {
+        "suite_version": suite["suite_version"],
+        "n_tasks": len(rows),
+        "passed": sum(r["passed"] for r in rows),
+        "by_class": {k: f"{sum(v)}/{len(v)}" for k, v in sorted(by_class.items())},
+        "tasks": rows,
+    }
     if args.json:
-        Path(args.json).write_text(json.dumps(
-            {"suite_version": suite["suite_version"], "tasks": out,
-             "passed": n, "total": len(out)}, indent=2))
+        Path(args.json).write_text(json.dumps(summary, indent=2))
+    for r in rows:
+        flag = "PASS" if r["passed"] else "FAIL"
+        print(f"{r['id']:8s} {r['class']:11s} {flag}  {'; '.join(r['problems'])}")
+    print(json.dumps({k: summary[k] for k in ("n_tasks", "passed", "by_class")}))
+    sys.exit(0 if summary["passed"] == summary["n_tasks"] else 2)
 
 
 if __name__ == "__main__":

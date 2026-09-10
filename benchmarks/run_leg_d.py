@@ -179,7 +179,7 @@ SERVER_WORK_FILES = ["build/exclurad", "maid07-PPpi.tbl", "input.dat"]   # per-c
 class LegSpec:
     def __init__(self, key, suite, scorer, prompt, system_append, baseline_trees,
                  shell_in_baseline, server_tools_withheld, readonly_baseline,
-                 isolated_server_workdir, timeout, label):
+                 isolated_server_workdir, timeout, label, max_turns):
         self.key, self.suite, self.scorer = key, suite, scorer
         self.prompt, self.system_append = prompt, system_append
         self.baseline_trees = baseline_trees
@@ -187,7 +187,7 @@ class LegSpec:
         self.server_tools_withheld = server_tools_withheld   # e.g. ["run_exclurad", "smoke_test"]
         self.readonly_baseline = readonly_baseline
         self.isolated_server_workdir = isolated_server_workdir
-        self.timeout, self.label = timeout, label
+        self.timeout, self.label, self.max_turns = timeout, label, max_turns
 
     def builtin_tools(self, condition: str) -> list[str]:
         return BUILTIN_TOOLS + (["Bash"] if condition == "baseline" and self.shell_in_baseline else [])
@@ -219,13 +219,17 @@ LEGS = {
     "d": LegSpec("d", SUITE, SCORER, PROMPT_TEMPLATE, SYSTEM_APPEND, BASELINE_TREES,
                  shell_in_baseline=False, server_tools_withheld=["run_exclurad", "smoke_test"],
                  readonly_baseline=True, isolated_server_workdir=False,
-                 timeout=900, label="agent-accuracy"),
+                 timeout=900, label="agent-accuracy", max_turns=25),
     "e2e": LegSpec("e2e", REPO / "benchmarks" / "agent_tasks" / "tasks_e2e.json",
                    REPO / "benchmarks" / "score_e2e_run.py", PROMPT_TEMPLATE_E2E,
                    SYSTEM_APPEND_E2E, BASELINE_TREES_E2E,
                    shell_in_baseline=True, server_tools_withheld=[],
                    readonly_baseline=False, isolated_server_workdir=True,
-                   timeout=1800, label="end-to-end"),
+                   # A Fortran run is 40-160 s and the shell tool times out at
+                   # 2 min, so a baseline agent spends turns waiting; the
+                   # shakedown's sonnet baseline hit 25 turns with the answer
+                   # on disk. 50 keeps the cap from being the binding constraint.
+                   timeout=1800, label="end-to-end", max_turns=50),
 }
 LEG = LEGS["d"]   # set from --leg in main()
 
@@ -1102,7 +1106,7 @@ def main() -> None:
                     help="π⁺ upstream checkout: source for the baseline copy and the server's pion work dir")
     ap.add_argument("--server-bin", default=shutil.which("exclurad-mcp") or "exclurad-mcp",
                     help="absolute path to exclurad-mcp (Claude Code spawns it outside conda)")
-    ap.add_argument("--max-turns", type=int, default=25)
+    ap.add_argument("--max-turns", type=int, help="default 25 for leg d, 50 for e2e")
     ap.add_argument("--timeout", type=int, help="wall-clock seconds per conversation "
                     "(default 900 for leg d, 1800 for e2e)")
     ap.add_argument("--parallel", type=int, default=4)
@@ -1116,6 +1120,7 @@ def main() -> None:
     LEG = LEGS[cfg.leg]
     cfg.label = cfg.label or LEG.label
     cfg.timeout = cfg.timeout or LEG.timeout
+    cfg.max_turns = cfg.max_turns or LEG.max_turns
 
     if cfg.pilot:
         cfg.models, cfg.reps = ["claude-sonnet-5"], 1
