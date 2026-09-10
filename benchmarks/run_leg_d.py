@@ -134,6 +134,115 @@ OPENCODE_TOOLS_ON = ["read", "write", "glob", "grep"]
 OPENCODE_SERVER_TOOLS_OFF = ["exclurad_run_exclurad", "exclurad_smoke_test"]
 CONDITION_FILE = "LEGD_CONDITION.md"   # instructions file carrying SYSTEM_APPEND
 
+# ---------------------------------------------------------------------------
+# Leg E (end-to-end): the agent must RUN EXCLURAD and report numbers
+# (PROTOCOL-E.md). Same harness plumbing, different suite, prompt, tool policy
+# and baseline tree: baseline gets the prebuilt executable, the lookup table
+# and a shell; with-server keeps every server tool including run_exclurad, on a
+# per-conversation copy of the checkout so parallel runs cannot clobber each
+# other's input.dat / radtot.dat.
+PROMPT_TEMPLATE_E2E = (
+    "You are helping a nuclear physicist run the EXCLURAD radiative-corrections "
+    "code. Request: {request}\n"
+    "\n"
+    "When you are done, write an `outcome.json` in the working directory: "
+    '`{{"action": "computed" | "refused" | "failed", "results": [{{"w": ..., "q2": ..., '
+    '"cos_theta": ..., "phi": ..., "delta": ..., "sigma_born": ...}}, ...], '
+    '"input_files": [...], "output_files": [...], "explanation": "..."}}`. '
+    "Report delta and sigma_born exactly as EXCLURAD wrote them, without rounding. "
+    "If the code does not produce a valid number for a point, put null for it and say "
+    "why. If the request is physically impossible, refuse and say why."
+)
+SYSTEM_APPEND_E2E = {
+    "with-server": (
+        "An MCP server named `exclurad` is registered in this session; use its tools "
+        "to validate kinematics, generate input files, run the code and parse its output."
+    ),
+    "baseline": (
+        "The EXCLURAD eta configuration (IzzyIllari fork) is in ./eta in the working "
+        "directory: Fortran source, README.md, a template input.dat, the lookup table, "
+        "and a prebuilt executable at ./eta/build/exclurad. You have a shell to run it. "
+        "There is no compiler and no MCP server."
+    ),
+}
+# Leg E baseline gets what a physicist with a built binary has: source, README,
+# template input, the table the executable opens, and the executable.
+BASELINE_TREES_E2E = {
+    "eta": {"files": BASELINE_COMMON + ["examples/README.md", "examples/input_single_chunk.dat",
+                                        "examples/input_multi_chunk.dat",
+                                        "build/exclurad", "maid07-PPpi.tbl"],
+            "readme": "../README.md"},
+}
+SERVER_WORK_FILES = ["build/exclurad", "maid07-PPpi.tbl", "input.dat"]   # per-conversation copy
+
+
+class LegSpec:
+    def __init__(self, key, suite, scorer, prompt, system_append, baseline_trees,
+                 shell_in_baseline, server_tools_withheld, readonly_baseline,
+                 isolated_server_workdir, timeout, label):
+        self.key, self.suite, self.scorer = key, suite, scorer
+        self.prompt, self.system_append = prompt, system_append
+        self.baseline_trees = baseline_trees
+        self.shell_in_baseline = shell_in_baseline
+        self.server_tools_withheld = server_tools_withheld   # e.g. ["run_exclurad", "smoke_test"]
+        self.readonly_baseline = readonly_baseline
+        self.isolated_server_workdir = isolated_server_workdir
+        self.timeout, self.label = timeout, label
+
+    def builtin_tools(self, condition: str) -> list[str]:
+        return BUILTIN_TOOLS + (["Bash"] if condition == "baseline" and self.shell_in_baseline else [])
+
+    @property
+    def claude_server_disallowed(self) -> list[str]:
+        return [f"mcp__exclurad__{t}" for t in self.server_tools_withheld]
+
+    @property
+    def opencode_server_off(self) -> list[str]:
+        return [f"exclurad_{t}" for t in self.server_tools_withheld]
+
+    @property
+    def codex_mcp_tools(self) -> list[str]:
+        return [t for t in ALL_SERVER_TOOLS if t not in self.server_tools_withheld]
+
+    def opencode_tools(self, condition: str) -> tuple[list[str], list[str]]:
+        on, off = list(OPENCODE_TOOLS_ON), list(OPENCODE_TOOLS_OFF)
+        if condition == "baseline" and self.shell_in_baseline:
+            off.remove("bash"); on.append("bash")
+        return on, off
+
+
+ALL_SERVER_TOOLS = ["describe_build_slots", "describe_outputs", "generate_build",
+                    "generate_input", "list_channels", "map_failures", "parse_output",
+                    "preflight_check", "resolve_tables", "run_exclurad", "smoke_test"]
+
+LEGS = {
+    "d": LegSpec("d", SUITE, SCORER, PROMPT_TEMPLATE, SYSTEM_APPEND, BASELINE_TREES,
+                 shell_in_baseline=False, server_tools_withheld=["run_exclurad", "smoke_test"],
+                 readonly_baseline=True, isolated_server_workdir=False,
+                 timeout=900, label="agent-accuracy"),
+    "e2e": LegSpec("e2e", REPO / "benchmarks" / "agent_tasks" / "tasks_e2e.json",
+                   REPO / "benchmarks" / "score_e2e_run.py", PROMPT_TEMPLATE_E2E,
+                   SYSTEM_APPEND_E2E, BASELINE_TREES_E2E,
+                   shell_in_baseline=True, server_tools_withheld=[],
+                   readonly_baseline=False, isolated_server_workdir=True,
+                   timeout=1800, label="end-to-end"),
+}
+LEG = LEGS["d"]   # set from --leg in main()
+
+
+def server_env(work: Path, cfg: argparse.Namespace) -> dict[str, str]:
+    """Environment for the exclurad server of one conversation. Leg E gives
+    each conversation its own copy of the executable and table so concurrent
+    run_exclurad calls do not share input.dat / radtot.dat."""
+    eta = cfg.eta_src
+    if LEG.isolated_server_workdir:
+        eta = work / ".exclurad-eta"
+        for rel in SERVER_WORK_FILES:
+            dst = eta / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(cfg.eta_src / rel, dst)
+    return {"EXCLURAD_WORK_DIR_ETA": str(eta), "EXCLURAD_WORK_DIR_PIPLUS": str(cfg.pion_src)}
+
 # Per-model token limits, keyed provider -> model. OpenCode asks the gateway for
 # 32000 output tokens by default, and the small models reject that outright
 # before generating anything (2026-09-09 probe sweep):
@@ -215,18 +324,19 @@ def prepare_workdir(work: Path, condition: str, sources: dict[str, Path],
         shutil.rmtree(work)
     work.mkdir(parents=True)
     if condition == "baseline":
-        for name, spec in BASELINE_TREES.items():
+        for name, spec in LEG.baseline_trees.items():
             src_root = sources[name]
             for rel in spec["files"]:
                 dst = work / name / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src_root / rel, dst)
             shutil.copy2((src_root / spec["readme"]).resolve(), work / name / "README.md")
-        make_readonly_tree(work)
+        if LEG.readonly_baseline:
+            make_readonly_tree(work)
     if cfg.agent == "opencode":
         # Project-level config: merged over the user's global provider config.
-        (work / CONDITION_FILE).write_text(SYSTEM_APPEND[condition] + "\n")
-        (work / "opencode.json").write_text(json.dumps(opencode_config(condition, cfg), indent=2))
+        (work / CONDITION_FILE).write_text(LEG.system_append[condition] + "\n")
+        (work / "opencode.json").write_text(json.dumps(opencode_config(condition, cfg, work), indent=2))
     elif cfg.agent == "codex":
         # Codex reads AGENTS.md from the working root; that is the append channel.
         (work / "AGENTS.md").write_text(system_append(condition, cfg) + "\n")
@@ -234,16 +344,17 @@ def prepare_workdir(work: Path, condition: str, sources: dict[str, Path],
 
 
 def system_append(condition: str, cfg: argparse.Namespace) -> str:
-    if cfg.agent == "codex" and condition == "baseline":
+    if cfg.agent == "codex" and condition == "baseline" and LEG.key == "d":
         return SYSTEM_APPEND_CODEX_BASELINE
-    return SYSTEM_APPEND[condition]
+    return LEG.system_append[condition]
 
 
-def opencode_config(condition: str, cfg: argparse.Namespace) -> dict:
-    tools = {t: False for t in OPENCODE_TOOLS_OFF}
-    tools.update({t: True for t in OPENCODE_TOOLS_ON})
-    permission = {"edit": "allow", "bash": "deny", "webfetch": "deny",
-                  "external_directory": "deny"}
+def opencode_config(condition: str, cfg: argparse.Namespace, work: Path) -> dict:
+    on, off = LEG.opencode_tools(condition)
+    tools = {t: False for t in off}
+    tools.update({t: True for t in on})
+    permission = {"edit": "allow", "bash": "allow" if "bash" in on else "deny",
+                  "webfetch": "deny", "external_directory": "deny"}
     conf = {
         "$schema": "https://opencode.ai/config.json",
         "share": "disabled",
@@ -257,10 +368,9 @@ def opencode_config(condition: str, cfg: argparse.Namespace) -> dict:
     if condition == "with-server":
         conf["mcp"] = {"exclurad": {
             "type": "local", "command": [str(cfg.server_bin)],
-            "environment": {"EXCLURAD_WORK_DIR_ETA": str(cfg.eta_src),
-                            "EXCLURAD_WORK_DIR_PIPLUS": str(cfg.pion_src)},
-            "enabled": True, "timeout": 30000}}
-        for t in OPENCODE_SERVER_TOOLS_OFF:
+            "environment": server_env(work, cfg),
+            "enabled": True, "timeout": 30000 if LEG.key == "d" else 1200000}}
+        for t in LEG.opencode_server_off:
             conf["tools"][t] = False
             conf["agent"]["legd"]["tools"][t] = False
     # Deep-merged over the global provider block, so npm/baseURL/cost survive and
@@ -275,6 +385,7 @@ def opencode_config(condition: str, cfg: argparse.Namespace) -> dict:
 
 def claude_args(condition: str, model: str, max_turns: int, mcp_config: Path,
                 empty_mcp: Path) -> list[str]:
+    tools = LEG.builtin_tools(condition)
     args = [
         "claude", "-p",
         "--model", model,
@@ -284,19 +395,20 @@ def claude_args(condition: str, model: str, max_turns: int, mcp_config: Path,
         # 2026-09-08) the global ~/.claude/CLAUDE.md is not loaded.
         "--restricted",
         "--strict-mcp-config",
-        "--tools", ",".join(BUILTIN_TOOLS),
+        "--tools", ",".join(tools),
         "--permission-mode", "dontAsk",
         "--max-turns", str(max_turns),
         "--no-session-persistence",
-        "--append-system-prompt", SYSTEM_APPEND[condition],
+        "--append-system-prompt", LEG.system_append[condition],
     ]
     if condition == "with-server":
         args += ["--mcp-config", str(mcp_config),
-                 "--allowedTools", ",".join(BUILTIN_TOOLS + ["mcp__exclurad__*"]),
-                 "--disallowedTools", ",".join(SERVER_TOOLS_DISALLOWED)]
+                 "--allowedTools", ",".join(tools + ["mcp__exclurad__*"])]
+        if LEG.claude_server_disallowed:
+            args += ["--disallowedTools", ",".join(LEG.claude_server_disallowed)]
     else:
         args += ["--mcp-config", str(empty_mcp),
-                 "--allowedTools", ",".join(BUILTIN_TOOLS)]
+                 "--allowedTools", ",".join(tools)]
     return args
 
 
@@ -342,9 +454,10 @@ def codex_args(condition: str, model: str, max_turns: int, work: Path,
             "-c", "sandbox_workspace_write.exclude_tmpdir_env_var=true",
             "--output-last-message", str(last_msg)]
     if condition == "with-server":
-        env = (f'{{EXCLURAD_WORK_DIR_ETA="{cfg.eta_src}", '
-               f'EXCLURAD_WORK_DIR_PIPLUS="{cfg.pion_src}"}}')
-        tools = "[" + ", ".join(f'"{t}"' for t in CODEX_MCP_TOOLS) + "]"
+        se = server_env(work, cfg)
+        env = (f'{{EXCLURAD_WORK_DIR_ETA="{se["EXCLURAD_WORK_DIR_ETA"]}", '
+               f'EXCLURAD_WORK_DIR_PIPLUS="{se["EXCLURAD_WORK_DIR_PIPLUS"]}"}}')
+        tools = "[" + ", ".join(f'"{t}"' for t in LEG.codex_mcp_tools) + "]"
         args += ["-c", f'mcp_servers.exclurad.command="{cfg.server_bin}"',
                  "-c", f"mcp_servers.exclurad.env={env}",
                  "-c", f"mcp_servers.exclurad.enabled_tools={tools}"]
@@ -355,7 +468,12 @@ def build_command(condition: str, model: str, work: Path, dest: Path,
                   cfg: argparse.Namespace) -> tuple[list[str], str]:
     """argv and how the prompt is delivered ('stdin' or 'argv')."""
     if cfg.agent == "claude":
-        return claude_args(condition, model, cfg.max_turns, cfg.mcp_config, cfg.empty_mcp), "stdin"
+        mcp = cfg.mcp_config
+        if LEG.isolated_server_workdir and condition == "with-server":
+            mcp = dest / "mcp-with-server.json"
+            mcp.write_text(json.dumps({"mcpServers": {"exclurad": {
+                "command": str(cfg.server_bin), "args": [], "env": server_env(work, cfg)}}}, indent=2))
+        return claude_args(condition, model, cfg.max_turns, mcp, cfg.empty_mcp), "stdin"
     if cfg.agent == "opencode":
         return opencode_args(model, work), "argv"
     return codex_args(condition, model, cfg.max_turns, work, cfg, dest / "last_message.txt"), "stdin"
@@ -794,7 +912,7 @@ def run_attempt(job: dict, cfg: argparse.Namespace, lock: threading.Lock, attemp
         dest.rename(keep)
 
     pre = prepare_workdir(work, condition, {"eta": cfg.eta_src, "pion": cfg.pion_src}, cfg)
-    prompt = PROMPT_TEMPLATE.format(request=task["request"])
+    prompt = LEG.prompt.format(request=task["request"])
     dest.mkdir(parents=True, exist_ok=True)
     args, delivery = build_command(condition, model, work, dest, cfg)
     (dest / "prompt.txt").write_text(prompt)
@@ -907,7 +1025,7 @@ def run_attempt(job: dict, cfg: argparse.Namespace, lock: threading.Lock, attemp
 
 def score_dir(run_dir: Path, python: str) -> dict:
     env = dict(os.environ, PYTHONPATH=str(REPO / "src"))
-    subprocess.run([python, str(SCORER), "--suite", str(SUITE), "--run-dir", str(run_dir),
+    subprocess.run([python, str(LEG.scorer), "--suite", str(LEG.suite), "--run-dir", str(run_dir),
                     "--json", str(run_dir / "scores.json")],
                    env=env, capture_output=True, text=True)
     return json.loads((run_dir / "scores.json").read_text())
@@ -951,6 +1069,9 @@ def harness_binary(agent: str) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--leg", choices=list(LEGS), default="d",
+                    help="d: input preparation (tasks.json); e2e: run EXCLURAD and report numbers "
+                         "(tasks_e2e.json, PROTOCOL-E.md)")
     ap.add_argument("--agent", choices=AGENTS, default="claude",
                     help="harness that drives the conversation (default: Claude Code)")
     ap.add_argument("--models", nargs="+", default=MODELS,
@@ -982,14 +1103,19 @@ def main() -> None:
     ap.add_argument("--server-bin", default=shutil.which("exclurad-mcp") or "exclurad-mcp",
                     help="absolute path to exclurad-mcp (Claude Code spawns it outside conda)")
     ap.add_argument("--max-turns", type=int, default=25)
-    ap.add_argument("--timeout", type=int, default=900, help="wall-clock seconds per conversation")
+    ap.add_argument("--timeout", type=int, help="wall-clock seconds per conversation "
+                    "(default 900 for leg d, 1800 for e2e)")
     ap.add_argument("--parallel", type=int, default=4)
     ap.add_argument("--max-attempts", type=int, default=3,
                     help="reruns of a conversation that ended in a rate-limit or API error")
     ap.add_argument("--resume", action="store_true",
                     help="fill in missing conversations of an existing --out dir")
-    ap.add_argument("--label", default="agent-accuracy")
+    ap.add_argument("--label", help="results dir suffix (default: agent-accuracy / end-to-end)")
     cfg = ap.parse_args()
+    global LEG
+    LEG = LEGS[cfg.leg]
+    cfg.label = cfg.label or LEG.label
+    cfg.timeout = cfg.timeout or LEG.timeout
 
     if cfg.pilot:
         cfg.models, cfg.reps = ["claude-sonnet-5"], 1
@@ -1019,7 +1145,7 @@ def main() -> None:
         if not (src / "exclurad.F").exists():
             sys.exit(f"{name} source not found at {src}")
 
-    suite = json.loads(SUITE.read_text())
+    suite = json.loads(LEG.suite.read_text())
     tasks = [t for t in suite["tasks"] if not cfg.tasks or t["id"] in cfg.tasks]
 
     # MCP configs live in the results dir so the exact registration is on record.
@@ -1052,8 +1178,9 @@ def main() -> None:
         "harness": cfg.agent, "harness_version": hv, "harness_binary": binary,
         "dry_run": cfg.dry_run,
         "harness_notes": CODEX_NOTES if cfg.agent == "codex" else None,
-        "suite": str(SUITE.relative_to(REPO)), "suite_version": suite["suite_version"],
-        "suite_sha256": hashlib.sha256(SUITE.read_bytes()).hexdigest(),
+        "leg": LEG.key, "scorer": str(LEG.scorer.relative_to(REPO)),
+        "suite": str(LEG.suite.relative_to(REPO)), "suite_version": suite["suite_version"],
+        "suite_sha256": hashlib.sha256(LEG.suite.read_bytes()).hexdigest(),
         "models": cfg.models, "conditions": cfg.conditions, "reps": cfg.reps,
         "tasks": [t["id"] for t in tasks],
         "exclurad_mcp": git_info(REPO),
@@ -1067,20 +1194,26 @@ def main() -> None:
         "max_attempts": cfg.max_attempts,
         "tool_policy": {
             "claude": {"permission_mode": "dontAsk", "strict_mcp_config": True,
-                       "restricted": True, "builtin_tools": BUILTIN_TOOLS,
-                       "with_server_allowed": BUILTIN_TOOLS + ["mcp__exclurad__*"],
-                       "with_server_disallowed": SERVER_TOOLS_DISALLOWED},
-            "opencode": {"tools_on": OPENCODE_TOOLS_ON, "tools_off": OPENCODE_TOOLS_OFF,
-                         "server_tools_off": OPENCODE_SERVER_TOOLS_OFF,
-                         "permission": {"edit": "allow", "bash": "deny", "webfetch": "deny",
-                                        "external_directory": "deny"},
+                       "restricted": True,
+                       "builtin_tools": {c: LEG.builtin_tools(c) for c in CONDITIONS},
+                       "with_server_allowed": LEG.builtin_tools("with-server") + ["mcp__exclurad__*"],
+                       "with_server_disallowed": LEG.claude_server_disallowed},
+            "opencode": {"tools": {c: LEG.opencode_tools(c) for c in CONDITIONS},
+                         "server_tools_off": LEG.opencode_server_off,
+                         "permission": {"edit": "allow",
+                                        "bash": "allow" if LEG.shell_in_baseline else "deny",
+                                        "webfetch": "deny", "external_directory": "deny"},
                          "agent": "legd", "pure": True, "share": "disabled"},
             "codex": {"sandbox": "workspace-write", "ignore_user_config": True,
-                      "web_search": False, "notes": CODEX_NOTES},
+                      "web_search": False, "mcp_enabled_tools": LEG.codex_mcp_tools,
+                      "notes": CODEX_NOTES},
         }[cfg.agent],
         "baseline_trees": {k: v["files"] + ["README.md (repository top-level)"]
-                           for k, v in BASELINE_TREES.items()},
-        "prompt_template": PROMPT_TEMPLATE, "system_append": SYSTEM_APPEND,
+                           for k, v in LEG.baseline_trees.items()},
+        "baseline_readonly": LEG.readonly_baseline,
+        "server_workdir": "per-conversation copy of build/exclurad + table"
+                          if LEG.isolated_server_workdir else "shared checkout",
+        "prompt_template": LEG.prompt, "system_append": LEG.system_append,
         "work_root": str(cfg.work_root),
         "known_leaks": {
             "claude": ["The CLI places the account email address and today's date in "
