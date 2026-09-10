@@ -107,13 +107,34 @@ byte validation, refusals happen where physics demands them.
 the server and diverge without it, correctness lives in the tooling, not
 the model.
 
-**Status.** Suite v1 (15 tasks) and harness done; first run 2026-09-08 with
-Sonnet 5 and Haiku 4.5 at k = 3 (`benchmarks/2026-09-08-agent-accuracy/`):
-with the server 93% and 96%, without it 89% and 80%, with the divergence
-concentrated in the fixable class (100%/100% vs 83%/33%). Fable 5.1 and
-Opus 5 cells pending; open-stack (GLM) runs are a separate follow-up. The
-run also surfaced a validator wording defect (|cos θ*| > 1 reported with
-the pole message) that made both models clamp an impossible cosine.
+**Status (2026-09-10).** Suite v1 (15 tasks, `suite_sha256
+21ee515822f1c51b…`) and harness done. **2,998 scored conversations across 24
+run directories**, three harnesses (Claude Code, OpenCode, Codex), 15 models,
+two server versions. Full map, per-arm results and open items:
+**`benchmarks/LEG_D_RESULTS.md`**.
+
+The headline is that **the server's value is inversely proportional to model
+capability**: frontier models gain +16 to +18 points, open models up to +60
+(NVIDIA Nemotron 3 Super 120B goes 40% → 100%). That matters more than "it
+helps", because most people who would run this server do not have frontier
+API access.
+
+Two results qualify what the study can claim. The v0.1.2 fix to the
+`q2_positive` validator suggestion took ip-04 from 0/9 to 8/9 with-server
+**on Codex only** — under OpenCode the same task was already at 11/12
+(frontier) and 18/27 (open) on v0.1.1 and does not move, so that fix repaired
+a harness × wording interaction rather than a general defect. And some models'
+scores are dominated by delivery rather than physics: Lightning 30B's failures
+are 32-of-32 outcomes printed as chat text instead of written, and Muse
+Glimmer 30B's 4% is 84-of-90 cells failing JSON parsing with correct-looking
+physics inside the file.
+
+Earlier runs remain on record: the first (2026-09-08, Sonnet 5 and Haiku 4.5,
+k = 3, `benchmarks/2026-09-08-agent-accuracy/`) gave 93%/96% with the server
+against 89%/80% without, the divergence concentrated in the fixable class, and
+surfaced the first validator wording defect (|cos θ*| > 1 reported with the
+pole message) that made both models clamp an impossible cosine. That defect
+and the `q2_positive` one are the same failure mode, found twice.
 
 ## Current status summary
 
@@ -122,4 +143,4 @@ the pole message) that made both models clamp an impossible cosine.
 | A: η regression | no | no (patched-build addendum waits on guard sign-off) |
 | B: π⁺ closure | no | no (needs one-time plot digitization) |
 | C: seeded failure detection | no | no |
-| D: agent accuracy | yes | no (two of four models run; Fable/Opus cells pending) |
+| D: agent accuracy | yes | no (2,998 conversations run; open items are the ablation spec and the `flags` dilution — see `benchmarks/LEG_D_RESULTS.md`) |

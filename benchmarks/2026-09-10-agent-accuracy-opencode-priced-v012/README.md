@@ -27,11 +27,16 @@ refusal of a well-posed request is 0/15 for every model in both versions.
 
 ## This closes the argument that the ip-04 fix was Codex-specific
 
-| ip-04 (Q² = −0.5), with-server | v0.1.1 | v0.1.2 |
+| ip-04 (Q² = −0.5), **with-server only** | v0.1.1 | v0.1.2 |
 |---|---|---|
-| **Codex** frontier (`c197248` → `2236ab5`) | **0/18** | **17/18** |
+| **Codex** frontier (`c197248` → `2236ab5`) | **0/9** | **8/9** |
 | **OpenCode** frontier (this pair) | **11/12** | **12/12** |
 | **OpenCode** open models | 18/27 | 19/27 |
+
+(Counted directly from `scores.json`. The Codex v0.1.1 arm also fails ip-04
+0/9 in *baseline*, which is where the "0/18" quoted elsewhere comes from —
+that figure pools both conditions and must not be compared against a
+with-server-only denominator. The row above is with-server throughout.)
 
 The v0.1.2 rewording of the `q2_positive` suggestion took Codex from total
 failure to near-total success. On OpenCode there was nothing to repair: the
@@ -47,8 +52,8 @@ the tool surface is confined. Both OpenCode arms are now measured on v0.1.2
 rather than inferred, at two very different capability levels, and neither
 moves.
 
-This does not make v0.1.2 unnecessary — it repaired a real 0/18 failure on a
-harness people use. It does mean **"v0.1.2 fixed ip-04" should not be stated
+This does not make v0.1.2 unnecessary — it repaired a real total failure
+(0/9 with-server, 0/9 baseline) on a harness people use. It does mean **"v0.1.2 fixed ip-04" should not be stated
 without naming the harness**, because on the study's primary cross-vendor
 harness ip-04 was never broken.
 

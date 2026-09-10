@@ -31,7 +31,7 @@ run-to-run noise at k=3. Excluding Lightning the pooled figures are 77.5% and
 
 ## Why: the ip-04 trap was harness-specific, and OpenCode never had it
 
-The rerun was motivated by ip-04 (Q² = −0.5) going **0/18 → 17/18** on the
+The rerun was motivated by ip-04 (Q² = −0.5) going **0/9 → 8/9** with-server on the
 Codex frontier models when the `q2_positive` suggestion string was reworded.
 That gain does not reproduce here, because under OpenCode there was nothing to
 gain — ip-04 already worked on v0.1.1:
@@ -49,10 +49,13 @@ gain — ip-04 already worked on v0.1.1:
 | NVIDIA Nemotron 3.5 Lightning 30B | 2/3 | **0/3** |
 | **total** | **18/27** | **19/27** |
 
-For context on the same task and the same server v0.1.1: the **Codex** frontier
-models scored **0/18**, while the **OpenCode** frontier models scored **11/12**
+For context on the same task and the same server v0.1.1, **with-server
+throughout**: the **Codex** frontier models scored **0/9**, while the
+**OpenCode** frontier models scored **11/12**
 (`../2026-09-09-agent-accuracy-opencode-priced/`), and these open models under
-OpenCode scored 18/27.
+OpenCode scored 18/27. (Codex also fails ip-04 0/9 in baseline; the "0/18"
+quoted elsewhere pools both conditions and is not comparable with the
+with-server-only denominators used here.)
 
 So the failure the v0.1.2 wording fix repaired was **an interaction between the
 suggestion string and the Codex harness, not a property of the string alone.**
