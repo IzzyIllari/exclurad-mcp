@@ -512,6 +512,7 @@ def parse_codex(lines: list[dict], dest: Path, rc: int) -> dict:
     """
     tool_names: dict[str, int] = {}
     usage, rate, thread_id, errors = None, None, None, []
+    agent_texts: list[str] = []
     turns = 0
 
     for ev in lines:
@@ -541,6 +542,8 @@ def parse_codex(lines: list[dict], dest: Path, rc: int) -> dict:
                 errors.append(f"{name}: {str(item['error'])[:300]}")
         elif it == "command_execution":
             tool_names["shell"] = tool_names.get("shell", 0) + 1
+        elif it == "agent_message":
+            agent_texts.append(str(item.get("text") or ""))
         elif it == "file_change":
             # Codex's write path. Not a shell command and not an MCP call, so
             # it was invisible to every earlier pattern here -- a run that
@@ -554,7 +557,9 @@ def parse_codex(lines: list[dict], dest: Path, rc: int) -> dict:
             errors.append(str(item.get("message") or item)[:500])
 
     last = dest / "last_message.txt"
-    final_text = last.read_text() if last.exists() else None
+    # Fall back to the last agent_message item when --output-last-message
+    # produced nothing (it did not, for a relative path, on 2026-09-09).
+    final_text = last.read_text() if last.exists() else (agent_texts[-1] if agent_texts else None)
     ok = rc == 0
     return {
         "init": {"session_id": thread_id, "harness_notes": CODEX_NOTES},
@@ -992,7 +997,13 @@ def main() -> None:
     today = dt.date.today().isoformat()
     if cfg.agent != "claude":
         cfg.label = f"{cfg.label}-{cfg.agent}"
-    cfg.out = cfg.out or (REPO / "benchmarks" / f"{today}-{cfg.label}")
+    # Children run with cwd = their work dir, so every path handed to them
+    # must be absolute (a relative --out broke the Claude --mcp-config path
+    # and Codex's --output-last-message on 2026-09-09).
+    cfg.out = (cfg.out or (REPO / "benchmarks" / f"{today}-{cfg.label}")).expanduser().resolve()
+    cfg.eta_src, cfg.pion_src = cfg.eta_src.expanduser().resolve(), cfg.pion_src.expanduser().resolve()
+    cfg.server_bin = Path(cfg.server_bin).expanduser().resolve()
+    cfg.work_root = cfg.work_root.expanduser().resolve()
     if cfg.out.exists() and not cfg.resume:
         sys.exit(f"{cfg.out} exists; runs are never overwritten (use --resume to fill gaps "
                  "or pick a new --out)")
