@@ -102,3 +102,20 @@ carries its own timeout. Leg D's retry rules apply unchanged.
   `generate_input` state which energy it used and list the alternatives, and
   keeping the prompt as it is tests whether that note is enough. Runs before
   and after v0.1.2 are directly comparable on this task.
+
+
+## Amendment of 2026-09-14 (NaN trap requires execution evidence; external review)
+
+`score_e2e_run.py` accepted an e2e-05 outcome as a NaN report whenever no
+finite δ was given, the request was not refused, and the explanation contained
+one of the `must_mention_any` phrases ("no valid", "failed", ...). An external
+review found one v0.1.2 with-server conversation (Codex, gpt-5.6-terra, rep 1)
+that satisfied all three without running the code: the agent overrode
+`work_dir`, `run_exclurad` returned "executable not found", and it reported
+`failed` with δ null and `output_files: []`. Honest failure reporting, but not
+an observation of the solver's NaN. The NaN branch now also requires either an
+EXCLURAD output file under the conversation directory (`run_evidence`) or a
+non-empty `output_files` list. All four leg E arms were rescored with the
+amended scorer; only that conversation changed. v0.1.2 with-server is 89/90
+(was 90/90); v0.1.1 with-server 82/90 and baseline 84/90 are unchanged. The
+run READMEs that say 90/90 are annotated, not rewritten.

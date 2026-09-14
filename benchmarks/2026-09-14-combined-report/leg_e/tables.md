@@ -14,14 +14,14 @@ Runs: 2026-09-10-end-to-end-claude, 2026-09-10-end-to-end-codex, 2026-09-10-end-
 | Codex | gpt-5.6-luna | baseline | 94% (17/18) [74–99] | 11/12 | 6/6 | 3/3 | 246 s | n/a | 0 |
 | Codex | gpt-5.6-sol | with-server | 100% (36/36) [90–100] | 24/24 | 12/12 | 6/6 | 142 s | n/a | 0 |
 | Codex | gpt-5.6-sol | baseline | 100% (18/18) [82–100] | 12/12 | 6/6 | 3/3 | 162 s | n/a | 0 |
-| Codex | gpt-5.6-terra | with-server | 100% (36/36) [90–100] | 24/24 | 12/12 | 6/6 | 117 s | n/a | 0 |
+| Codex | gpt-5.6-terra | with-server | 97% (35/36) [86–100] | 24/24 | 11/12 | 5/6 | 117 s | n/a | 0 |
 | Codex | gpt-5.6-terra | baseline | 94% (17/18) [74–99] | 11/12 | 6/6 | 3/3 | 140 s | n/a | 0 |
 
 ## Pooled
 
 | condition | n | pass rate | well-posed | trap |
 |---|---|---|---|---|
-| with-server | 180 | 96% (172/180) [91–98] | 113/120 | 59/60 |
+| with-server | 180 | 95% (171/180) [91–97] | 113/120 | 58/60 |
 | baseline | 90 | 93% (84/90) [86–97] | 55/60 | 29/30 |
 
 ## Failure taxonomy
@@ -34,6 +34,7 @@ Runs: 2026-09-10-end-to-end-claude, 2026-09-10-end-to-end-codex, 2026-09-10-end-
 | baseline | refused a runnable point | 1 |
 | with-server | asked for rc_mode=1 (leading-log), server reported NO_TAI | 5 |
 | with-server | wrong beam energy assumed (10.6 GeV) | 3 |
+| with-server | other: no execution evidence: the NaN was not observed fr | 1 |
 
 ## Every failure
 
@@ -53,3 +54,4 @@ Runs: 2026-09-10-end-to-end-claude, 2026-09-10-end-to-end-codex, 2026-09-10-end-
 | Codex | gpt-5.6-luna | with-server | 2 | e2e-02 | asked for rc_mode=1 (leading-log), server reported NO_TAI | direction: expected computed, agent chose failed; delta missing for phi=300.0; sigma_born  |
 | Codex | gpt-5.6-luna | with-server | 3 | e2e-01 | asked for rc_mode=1 (leading-log), server reported NO_TAI | direction: expected computed, agent chose failed; delta missing for phi=72.0; sigma_born m |
 | Codex | gpt-5.6-luna | baseline | 3 | e2e-04 | delta off (no matching run on disk) | delta 1.141 vs reference 1.1413042139 (|diff| 3.04e-04 > 1e-05) |
+| Codex | gpt-5.6-terra | with-server | 1 | e2e-05 | other: no execution evidence: the NaN was not observed fr | no execution evidence: the NaN was not observed from an EXCLURAD run |

@@ -33,15 +33,23 @@ tasks reproduce exactly in both conditions), not to add weight to it.
 
 ## For the DNP slide
 
-**The sentence the data support.** Putting a deterministic, unit-tested
-validation layer between the agent and the legacy code raised the agents'
-pass rate on the same 15 tasks from 66% to 85% pooled over 15 models and
-three harnesses, with zero false refusals, and the gain was largest for the
-weakest models: +11 to +20 points for frontier models, +25 to +58 for
-open-weight ones.
+**The sentence the data support.** Giving the agent a package of documented,
+unit-tested checks and input-generation tools raised its pass rate on the same
+15 tasks in every harness tested: on OpenCode, the primary cross-vendor
+comparison, from 59% to 80% over 13 models; on Claude Code from 84% to 100%
+over two; on Codex, a labelled replication that keeps its shell, from 84% to
+99% over three. No well-posed request was falsely refused with the server.
+The largest gains were for two open-weight models with low baseline scores
+(+56 and +58 points); frontier models gained +11 to +20.
+
+Harness rows are never pooled (PROTOCOL.md). An earlier version of this file
+led with an all-18-cell pool, 85% (692/810) vs 66% (538/810); the arithmetic
+is right but the pool mixes Codex, which has a different tool surface, with
+the other two harnesses, so it is withdrawn as a headline.
 
 **The convergence claim, as measured.** With the server, the six frontier
-cells (OpenCode and Claude Code) span 98–100%; without it they span 80–89%.
+cells (OpenCode and Claude Code) span 98–100% (269/270 together, 99.6%);
+without it they span 80–89%.
 The nine open-weight models span 56–98% with the server against 27–87%
 without, once the two models whose scores are delivery failures are set aside
 (below). Correctness moved into the tooling, and the spread between models
@@ -61,30 +69,60 @@ full 18-cell table is `leg_d/tables.md`):
 
 | | with the server | without | gain |
 |---|---|---|---|
-| pooled, 18 harness × model cells | 85% (692/810) [83–88] | 66% (538/810) [63–70] | +19 pp |
-| frontier, OpenCode + Claude Code (6 cells) | 100% (269/270) [98–100] | 83% (224/270) [78–87] | +17 pp |
-| open-weight, OpenCode (9 cells) | 72% (290/405) [67–76] | 49% (200/405) [45–54] | +22 pp |
-| open-weight, excluding the two delivery-broken models (7 cells) | 88% (276/315) [84–91] | 58% (183/315) [53–63] | +29 pp |
-| Codex, gpt-5.6 sol / terra / luna (labelled replication, 3 cells) | 99% (133/135) [95–100] | 84% (114/135) [77–90] | +14 pp |
-| ill-posed requests refused with the reason (pooled) | 272/324 | 223/324 | |
-| well-posed requests falsely refused (pooled) | **0/270** | 5/270 | |
-| fixable class, all non-Codex cells | 84% (151/180) | 49% (89/180) | +35 pp |
-| `skip_preflight` bypass attempts / `run_exclurad` attempts (with-server) | 1 / 0 of 810 | n/a | |
+| **OpenCode, 13 models (primary)** | **80% (469/585) [77–83]** | **59% (348/585) [55–63]** | **+21 pp** |
+| OpenCode frontier, 4 models | 99% (179/180) [97–100] | 82% (148/180) [76–87] | +17 pp |
+| OpenCode open-weight, 9 models | 72% (290/405) [67–76] | 49% (200/405) [45–54] | +22 pp |
+| OpenCode open-weight without the two delivery-broken models, 7 (sensitivity) | 88% (276/315) [84–91] | 58% (183/315) [53–63] | +29 pp |
+| Claude Code, 2 models | 100% (90/90) [96–100] | 84% (76/90) [76–91] | +16 pp |
+| Codex, gpt-5.6 sol / terra / luna (labelled replication, shell kept) | 99% (133/135) [95–100] | 84% (114/135) [77–90] | +14 pp |
+| well-posed requests falsely refused, OpenCode / Claude Code / Codex | **0/195 / 0/30 / 0/45** | 5/195 / 0/30 / 0/45 | |
+| ill-posed requests refused with the reason, OpenCode / Claude Code / Codex | 183/234 / 36/36 / 53/54 | 143/234 / 35/36 / 45/54 | |
+| fixable class, OpenCode / Claude Code | 82% (127/156) / 100% (24/24) | 47% (75/156) / 58% (14/24) | |
+| `skip_preflight` override used, OpenCode / Claude Code / Codex (with-server conversations) | 12/585 / 1/90 / 0/135 | n/a | |
+| `run_exclurad` or `smoke_test` attempted where withheld | 0/810 | n/a | |
 | cost per correct result, priced non-Codex cells (270 conversations each) | $0.032 | $0.147 | 4.6× |
-| median wall time, OpenCode / Claude Code | 17 s / 20 s | 46 s / 50 s | |
+| median wall time, OpenCode / Claude Code / Codex | 17 s / 20 s / 56 s | 46 s / 50 s / 54 s | |
+
+The override count was reported as 1/810 until 2026-09-14. The scanner in
+`report_leg_d.py` parsed only Claude Code's event format, so OpenCode and
+Codex conversations were zero by construction; an external review of the raw
+transcripts found the 12 OpenCode uses, and the scanner now reads all three
+formats (PROTOCOL.md, amendment of 2026-09-14). All 13 uses completed a
+`generate_input` call with `skip_preflight=true`; in most the agent had
+already run `preflight_check` and repaired the point. The override is
+available to any agent, not gated to an expert role.
 
 Largest single-model gains: Nemotron 3 Nano 30B 31% → 89% (14/45 → 40/45),
 Nemotron 3 Super 120B 40% → 96% (18/45 → 43/45), gpt-oss-120b 27% → 56%.
+Two open-weight models moved the other way (Lightning −4, Muse Glimmer −2);
+both are delivery failures, below. The gain-vs-baseline figure has the
+baseline on both axes, so a descending trend is partly arithmetic (the
+maximum gain is 100 − baseline); it shows where the large gains were, not an
+inverse law between capability and benefit.
 
 **Leg E, the agent actually runs the code** (6 η tasks × k = 3; references
 are recorded October-2025 campaign rows; full table `leg_e/tables.md`):
 
 | | with the server | without |
 |---|---|---|
-| server v0.1.2, five models (sonnet, haiku, sol, terra, luna) | **90/90** | (baseline not re-run) |
+| server v0.1.2, five models (sonnet, haiku, sol, terra, luna) | **89/90** (60/60 well-posed, 15/15 threshold trap, 14/15 NaN trap) | (baseline not re-run) |
 | server v0.1.1, same five models | 82/90 | 84/90 |
-| NaN trap reported as NaN, all versions pooled | 29/30 | 14/15 |
+| NaN trap reported as NaN, all versions pooled | 28/30 | 14/15 |
 | below-threshold trap refused | 30/30 | 15/15 |
+
+The v0.1.2 total was published as 90/90 on 2026-09-10. An external review
+on 2026-09-14 found that one scored NaN-trap pass (Codex, gpt-5.6-terra,
+rep 1, e2e-05) never ran EXCLURAD: the agent overrode `work_dir`, got
+"executable not found", and reported `failed` with δ null; the scorer's NaN
+branch accepted "no valid delta" as a NaN observation. The scorer now requires
+execution evidence for that task (PROTOCOL-E.md, amendment of 2026-09-14),
+all four arms were rescored symmetrically, and exactly that one conversation
+changed. The safer main-slide number is the well-posed computations, 60/60
+(24/24 Claude Code, 36/36 Codex), with the traps stated separately.
+
+These are the same six tasks that exposed the two v0.1.1 defects and then
+evaluated the fixes; there is no held-out suite. Report the before/after as a
+development-suite rerun, not as a generalisation test.
 
 Every v0.1.1 with-server failure was an interface defect and was measured to
 vanish on v0.1.2: Haiku assumed a 10.6 GeV beam in 3 conversations (0 once
@@ -116,8 +154,10 @@ decision" slide:**
    gpt-5.6-terra, baseline, rep 1):
    `../2026-09-09-agent-accuracy-opencode-priced/aiportal/aws-gov.gpt-5.6-terra/baseline/rep1/ip-04/outcome.json`
    — `fix_and_generate`, flag `q2_sign_convention_corrected`, "the requested
-   q² = −0.5 GeV² was converted to input Q² = 0.5 GeV²". All three luna
-   baseline reps and both terra reps 1–2 do the same.
+   q² = −0.5 GeV² was converted to input Q² = 0.5 GeV²". Of the 54 baseline
+   ip-04 conversations in the headline cells, 20 chose `fix_and_generate`
+   and 4 more generated anyway (24 proceeded); 21 refused; 9 delivered no
+   parseable outcome. With the server: 45 refused, 1 `fix_and_generate`.
 3. Without the server, below threshold and proceeding (OpenCode,
    gpt-oss-120b, baseline, rep 1, ip-02 "W = 1.45 GeV … it is above the
    Delta"):
@@ -193,18 +233,21 @@ The fixable class (clamp the pole, map φ*, flag negative v_cut, warn near
 threshold) is where the code's unwritten conventions live and where the
 server's gain is largest in every scope.
 
-## What the agents had to know (per-quirk pass counts, headline cells pooled, n = 57 baseline / 54 with-server per task)
+## What the agents had to know (per-quirk pass counts, all 18 headline cells, n = 54 per task and condition)
+
+This table pools across harnesses for a per-task view only; it is not a
+headline number. Regenerated from `leg_d/tables.md`.
 
 | task | what you have to know | baseline | with-server |
 |---|---|---|---|
-| fx-01 | cos θ* = ±1 must be clamped to ±0.999 (integrator pole) | 8/57 | 48/54 |
-| wp-04 | grids over 10 points must be chunked across files | 28/57 | 43/54 |
-| ip-04 | Q² < 0 is not electroproduction, not a sign convention | 18/57 | 45/54 |
-| fx-04 | negative v_cut switches the code's cut interpretation | 37/57 | 44/54 |
-| fx-03 | φ* outside [0, 360] must be mapped | 39/57 | 49/54 |
-| fx-02 | W within 10 MeV of threshold: integrator may hang, warn | 44/57 | 45/54 |
-| ip-06 | |cos θ*| > 1 is not a cosine | 53/57 | 46/54 |
-| wp-05 | π⁺ channel has its own threshold and table | 47/57 | 48/54 |
+| fx-01 | cos θ* = ±1 must be clamped to ±0.999 (integrator pole) | 8/54 | 48/54 |
+| wp-04 | grids over 10 points must be chunked across files (a convention of this tool; the Fortran reader accepts up to 10,000) | 28/54 | 43/54 |
+| ip-04 | Q² < 0 is not electroproduction, not a sign convention | 18/54 | 45/54 |
+| fx-04 | negative v_cut switches the code's cut interpretation (WARN, not a refusal) | 37/54 | 44/54 |
+| fx-03 | φ* outside [0, 360] must be mapped | 39/54 | 49/54 |
+| fx-02 | W within 10 MeV of threshold: integrator may hang, warn | 44/54 | 45/54 |
+| ip-06 | |cos θ*| > 1 is not a cosine | 53/54 | 46/54 |
+| wp-03 | π⁺ channel has its own threshold and table | 47/54 | 48/54 |
 
 ip-06 is the one row where the baseline is ahead. Its eight with-server misses
 in the headline cells are six from the two delivery-broken models (Lightning

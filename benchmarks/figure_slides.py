@@ -51,19 +51,22 @@ def is_frontier(model: str) -> bool:
 
 def pooled_bars(d: Path, compact: bool = False) -> None:
     rows = headline(list(csv.DictReader(open(d / "leg_d" / "combined_results.csv"))))
+    # Rows never pool across harnesses (PROTOCOL.md): OpenCode is the primary
+    # cross-vendor comparison, Claude Code and Codex are shown as their own rows.
     scopes = [
-        ("all 18 cells", lambda r: True),
-        ("frontier, 6 cells\n(OpenCode, Claude Code)", lambda r: is_frontier(r["model"]) and r["harness"] != "codex"),
-        ("open-weight, 9 cells\n(OpenCode)", lambda r: not is_frontier(r["model"]) and r["harness"] == "opencode"),
-        ("open-weight without the two\ndelivery-broken models, 7 cells",
-         lambda r: not is_frontier(r["model"]) and r["harness"] == "opencode"
+        ("OpenCode, 13 models", lambda r: r["harness"] == "opencode"),
+        ("  frontier, 4 models", lambda r: r["harness"] == "opencode" and is_frontier(r["model"])),
+        ("  open-weight, 9 models", lambda r: r["harness"] == "opencode" and not is_frontier(r["model"])),
+        ("  open-weight without the two\n  delivery-broken models, 7",
+         lambda r: r["harness"] == "opencode" and not is_frontier(r["model"])
          and not any(b in r["model"] for b in DELIVERY_BROKEN)),
-        ("Codex, 3 cells\n(replication, shell kept)", lambda r: r["harness"] == "codex"),
+        ("Claude Code, 2 models", lambda r: r["harness"] == "claude"),
+        ("Codex, 3 models\n(replication, shell kept)", lambda r: r["harness"] == "codex"),
     ]
     if compact:
-        scopes = [("all 18 cells", scopes[0][1]), ("frontier\n6 cells", scopes[1][1]),
-                  ("open-weight\n9 cells", scopes[2][1]),
-                  ("open-weight without\n2 delivery-broken\n7 cells", scopes[3][1])]
+        scopes = [("OpenCode\n13 models", scopes[0][1]), ("  frontier, 4", scopes[1][1]),
+                  ("  open-weight, 9", scopes[2][1]),
+                  ("Claude Code\n2 models", scopes[4][1]), ("Codex, 3\n(shell kept)", scopes[5][1])]
     fs = 9 if compact else 7.5
     stem = "figure_pooled_bars_slide" if compact else "figure_pooled_bars"
     out = []
@@ -84,7 +87,7 @@ def pooled_bars(d: Path, compact: bool = False) -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(3.6, 3.7) if compact else (5.6, 3.3))
+    fig, ax = plt.subplots(figsize=(3.6, 3.9) if compact else (5.6, 3.7))
     ys = list(range(len(scopes)))[::-1]
     off = {"with-server": +0.19, "baseline": -0.19}
     col = {"with-server": ORANGE, "baseline": BLUE}

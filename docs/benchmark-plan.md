@@ -115,13 +115,18 @@ cross-harness report, the slide figures and the "For the DNP slide" section
 are in **`benchmarks/2026-09-14-combined-report/README.md`**; the arm-by-arm
 map with per-arm caveats is **`benchmarks/LEG_D_RESULTS.md`**.
 
-The headline is that **the server's value is inversely proportional to model
-capability**: frontier models gain +11 to +20 points, open-weight models up to
-+58 (NVIDIA Nemotron 3 Nano 30B goes 31% → 89%, Nemotron 3 Super 120B 40% →
-96%). That matters more than "it helps", because most people who would run
-this server do not have frontier API access. Pooled over the 18 harness ×
-model cells, with-server 85% (692/810) against baseline 66% (538/810); no
-model falsely refused a well-posed request with the server (0/270).
+The headline: **the tools raised scored task completion in every harness
+tested**. On OpenCode, the primary cross-vendor comparison, 59% → 80%
+(348/585 → 469/585) over 13 models; on Claude Code 84% → 100% (76/90 → 90/90);
+on Codex, a labelled replication that keeps its shell, 84% → 99% (114/135 →
+133/135). Harness rows are never pooled. The largest gains were for two
+open-weight models with low baseline scores: NVIDIA Nemotron 3 Nano 30B 31% →
+89% and Nemotron 3 Super 120B 40% → 96%; frontier models gained +11 to +20.
+That matters because most people who would run this server do not have
+frontier API access. No well-posed request was falsely refused with the
+server (0/270 across the harnesses). The `skip_preflight` override was used in
+13 of 810 with-server conversations (12 OpenCode, 1 Claude Code, 0 Codex); it
+is available to any agent.
 
 Two results qualify what the study can claim. The v0.1.2 fix to the
 `q2_positive` validator suggestion took ip-04 from 0/9 to 8/9 with-server
@@ -149,8 +154,10 @@ at a below-threshold point. Protocol: `benchmarks/agent_tasks/PROTOCOL-E.md`;
 suite `tasks_e2e.json` (6 η tasks); scorer `score_e2e_run.py`.
 
 **Status (2026-09-14).** 270 conversations, five models on two harnesses,
-servers v0.1.1 and v0.1.2. On v0.1.2 every model is 18/18 with the server
-(90/90). Both with-server failure modes seen on v0.1.1 were interface
+servers v0.1.1 and v0.1.2. On v0.1.2 the five models score 89/90 with the
+server under the amended scorer (60/60 well-posed, 15/15 threshold trap,
+14/15 NaN trap; the one miss reported "could not run" without executing and
+was scored as a NaN observation until the 2026-09-14 amendment). Both with-server failure modes seen on v0.1.1 were interface
 defects, and both were measured to disappear when the tool interface stopped
 inviting them: Haiku 4.5 assumed a 10.6 GeV beam (3 → 0 once `generate_input`
 echoed its settings and named the campaign energies) and gpt-5.6-luna passed
@@ -170,4 +177,4 @@ rounding the reported number.
 | B: π⁺ closure | no | no (needs one-time plot digitization) |
 | C: seeded failure detection | no | no |
 | D: agent accuracy | yes | no (2,520 conversations; combined report in `benchmarks/2026-09-14-combined-report/`; ablation specified in `PROTOCOL-ABLATION.md`, not run) |
-| E: end-to-end | yes | no (270 conversations; 90/90 on server v0.1.2; report in the same combined directory) |
+| E: end-to-end | yes | no (270 conversations; 89/90 on server v0.1.2 after the 2026-09-14 scorer amendment; report in the same combined directory) |

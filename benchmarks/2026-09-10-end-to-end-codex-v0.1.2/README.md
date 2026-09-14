@@ -24,3 +24,5 @@ radiative correction to the beam-spin asymmetry. On v0.1.1 the runner's
 NO_TAI misclassification accidentally prevented luna reporting the
 approximate number as exact; v0.1.2 fixes both, so the guard is now the
 parameter name rather than a bug.
+
+> **Rescored 2026-09-14** (PROTOCOL-E.md amendment): terra rep 1 e2e-05 no longer passes; it reported `failed` without ever running EXCLURAD (executable not found after a `work_dir` override), which the NaN branch used to accept. This arm is **53/54**; luna and sol are unchanged. Five-model v0.1.2 total: 89/90.

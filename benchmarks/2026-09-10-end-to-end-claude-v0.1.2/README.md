@@ -17,3 +17,5 @@ correct physics for RG-A but not the RG-K reference these tasks come from);
 sonnet's choices are identical across versions. The fix moved the weaker
 model without disturbing the stronger one. The task wording was deliberately
 NOT changed (PROTOCOL-E.md, "Known asymmetries").
+
+> **Rescored 2026-09-14** (PROTOCOL-E.md amendment: the NaN trap now requires execution evidence): no change in this arm, 36/36. The five-model v0.1.2 total is 89/90 because one Codex terra NaN-trap pass did not survive.

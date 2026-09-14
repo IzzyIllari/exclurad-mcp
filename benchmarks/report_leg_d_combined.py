@@ -325,7 +325,7 @@ QUIRKS = [
     ("fx-03", "φ* outside [0, 360] must be mapped"),
     ("fx-02", "W within 10 MeV of threshold: integrator may hang, warn"),
     ("ip-06", "|cos θ*| > 1 is not a cosine"),
-    ("wp-05", "π⁺ channel has its own threshold and table"),
+    ("wp-03", "π⁺ channel has its own threshold and table"),
 ]
 
 

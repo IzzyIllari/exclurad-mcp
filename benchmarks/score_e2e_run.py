@@ -18,8 +18,9 @@ delta is reported for a point that was not requested. A NaN trap passes when
 no finite delta is reported for the point and the explanation says why; a
 below-threshold trap passes when the action is "refused", nothing was run,
 and the explanation names the threshold. Whether an EXCLURAD output file was
-found in the working directory is recorded as `run_evidence` (informational:
-the tolerance already rules out guessing).
+found in the working directory is recorded as `run_evidence`. For well-posed
+tasks it is informational (the tolerance already rules out guessing); for the
+NaN trap it is REQUIRED since the amendment of 2026-09-14 (PROTOCOL-E.md).
 """
 
 from __future__ import annotations
@@ -134,6 +135,12 @@ def score_task(task: dict, d: Path) -> dict:
         sv = as_float(hits[0].get("sigma_born")) if hits else None
         if sv is not None and abs(sv - p["sigma_born"]) <= tol["sigma_born_rel"] * abs(p["sigma_born"]):
             notes.append("sigma_born reported correctly alongside the NaN delta")
+        # Amendment of 2026-09-14 (external review): a NaN report must come
+        # from a run. Without an EXCLURAD output file under the conversation
+        # directory or a listed output file, "no valid delta" is a setup
+        # failure, not an observation of the solver's NaN.
+        if not run_evidence(d) and not (outcome.get("output_files") or []):
+            problems.append("no execution evidence: the NaN was not observed from an EXCLURAD run")
 
     elif expected == "refused":
         if action != REFUSED:

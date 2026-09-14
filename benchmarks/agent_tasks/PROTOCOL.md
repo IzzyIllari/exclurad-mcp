@@ -371,3 +371,22 @@ invokes a `codex-auto-review` model the team is not licensed for (403), and the
 only alternative removes sandboxing entirely. Codex cells therefore run
 OpenAI-native models only, which confounds harness with model: there is no
 shared-model cross-harness cell, and the combined report must not present one.
+
+
+### Amendment of 2026-09-14 (bypass scanner; external review)
+
+`report_leg_d.py::scan_bypass` counted `generate_input(skip_preflight=true)`
+and `run_exclurad`/`smoke_test` attempts only from Claude Code's stream-json
+event format. OpenCode (`type == "tool_use"`, `part.tool`, `part.state.input`)
+and Codex (`item.type == "mcp_tool_call"`, `item.arguments`) conversations
+were therefore reported as zero regardless of what the agent did. An external
+review of the raw transcripts found 13 override uses among the 810
+newest-version with-server conversations (12/585 OpenCode, 1/90 Claude Code,
+0/135 Codex) where the reports said 1/810. The scanner now parses all three
+formats (`_tool_calls`), counts conversations rather than events, and the
+combined report was regenerated. Run/smoke-test attempts remain 0/810 under
+the corrected scanner. Every bypass statistic published before this date is
+superseded; `2026-09-14-combined-report/README.md` carries the corrected
+counts. Rule going forward: any per-conversation statistic derived from
+transcripts must be validated against at least one raw conversation per
+harness before it is reported.

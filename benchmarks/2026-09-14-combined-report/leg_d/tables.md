@@ -45,8 +45,8 @@ Conversations: 2520 total, 1620 in headline cells (18 harness×model cells), 900
 |---|---|---|---|---|---|---|
 | Claude Code | claude-haiku-4.5 | v0.1.2 | with-server | 15/15 | 12/12 | 18/18 |
 | Claude Code | claude-haiku-4.5 | v0.1.0 | baseline | 15/15 | 4/12 | 17/18 |
-| Claude Code | claude-sonnet-5 | v0.1.2 | with-server | 15/15 | 12/12 | 18/18 |
 | Claude Code | claude-sonnet-5 | v0.1.0 | baseline | 12/15 | 10/12 | 18/18 |
+| Claude Code | claude-sonnet-5 | v0.1.2 | with-server | 15/15 | 12/12 | 18/18 |
 | OpenCode | NVIDIA-Nemotron-3-Super-120B-A12B-FP8 | v0.1.1 | baseline | 9/15 | 1/12 | 8/18 |
 | OpenCode | NVIDIA-Nemotron-3-Super-120B-A12B-FP8 | v0.1.2 | with-server | 14/15 | 12/12 | 17/18 |
 | OpenCode | gpt-5.4 | v0.1.2 | with-server | 15/15 | 12/12 | 18/18 |
@@ -55,14 +55,14 @@ Conversations: 2520 total, 1620 in headline cells (18 harness×model cells), 900
 | OpenCode | gpt-5.6-luna | v0.1.1 | baseline | 14/15 | 9/12 | 14/18 |
 | OpenCode | gpt-5.6-terra | v0.1.2 | with-server | 15/15 | 11/12 | 18/18 |
 | OpenCode | gpt-5.6-terra | v0.1.1 | baseline | 14/15 | 8/12 | 15/18 |
-| OpenCode | claude-sonnet-5 | v0.1.1 | baseline | 11/15 | 8/12 | 17/18 |
 | OpenCode | claude-sonnet-5 | v0.1.2 | with-server | 15/15 | 12/12 | 18/18 |
-| OpenCode | gemma-4-31B-it | v0.1.1 | baseline | 14/15 | 6/12 | 18/18 |
+| OpenCode | claude-sonnet-5 | v0.1.1 | baseline | 11/15 | 8/12 | 17/18 |
 | OpenCode | gemma-4-31B-it | v0.1.2 | with-server | 15/15 | 11/12 | 18/18 |
-| OpenCode | gpt-oss-120b | v0.1.1 | baseline | 6/15 | 3/12 | 3/18 |
+| OpenCode | gemma-4-31B-it | v0.1.1 | baseline | 14/15 | 6/12 | 18/18 |
 | OpenCode | gpt-oss-120b | v0.1.2 | with-server | 11/15 | 8/12 | 6/18 |
-| OpenCode | Inkling-Small-NVFP4 | v0.1.2 | with-server | 14/15 | 12/12 | 18/18 |
+| OpenCode | gpt-oss-120b | v0.1.1 | baseline | 6/15 | 3/12 | 3/18 |
 | OpenCode | Inkling-Small-NVFP4 | v0.1.1 | baseline | 14/15 | 8/12 | 17/18 |
+| OpenCode | Inkling-Small-NVFP4 | v0.1.2 | with-server | 14/15 | 12/12 | 18/18 |
 | OpenCode | Laguna-S-2.1-NVFP4 | v0.1.1 | baseline | 10/15 | 7/12 | 17/18 |
 | OpenCode | Laguna-S-2.1-NVFP4 | v0.1.2 | with-server | 14/15 | 11/12 | 16/18 |
 | OpenCode | Mistral-Medium-3.5-128B | v0.1.2 | with-server | 10/15 | 11/12 | 18/18 |
@@ -77,8 +77,8 @@ Conversations: 2520 total, 1620 in headline cells (18 harness×model cells), 900
 | Codex | gpt-5.6-luna | v0.1.2 | with-server | 15/15 | 11/12 | 18/18 |
 | Codex | gpt-5.6-sol | v0.1.1 | baseline | 14/15 | 11/12 | 15/18 |
 | Codex | gpt-5.6-sol | v0.1.2 | with-server | 15/15 | 12/12 | 18/18 |
-| Codex | gpt-5.6-terra | v0.1.2 | with-server | 15/15 | 12/12 | 17/18 |
 | Codex | gpt-5.6-terra | v0.1.1 | baseline | 11/15 | 9/12 | 15/18 |
+| Codex | gpt-5.6-terra | v0.1.2 | with-server | 15/15 | 12/12 | 17/18 |
 
 ## Same model, different harness
 
@@ -143,7 +143,7 @@ Conversations: 2520 total, 1620 in headline cells (18 harness×model cells), 900
 | fx-03 | φ* outside [0, 360] must be mapped | 36/54 | 49/54 |
 | fx-02 | W within 10 MeV of threshold: integrator may hang, warn | 41/54 | 45/54 |
 | ip-06 | |cos θ*| > 1 is not a cosine | 50/54 | 46/54 |
-| wp-05 | π⁺ channel has its own threshold and table | 44/54 | 48/54 |
+| wp-03 | π⁺ channel has its own threshold and table | 41/54 | 45/54 |
 
 ## Cost and tokens per cell
 
