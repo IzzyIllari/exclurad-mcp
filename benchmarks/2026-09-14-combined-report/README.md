@@ -13,7 +13,11 @@ with the other harnesses (the Codex shell stays available in both conditions).
 leg_d/tables.md                    headline, pooled, by class, harness effect, before/after,
                                    per-quirk, cost and tokens, failure taxonomy
 leg_d/figure_gain_vs_baseline.*    THE SLIDE FIGURE: gain vs baseline pass rate, one point per cell
+                                   (*_slide.pdf: half-slide size, larger type; figure_gain_vs_baseline.py)
+leg_d/figure_pooled_bars.*         pooled pass rate by scope, both conditions, Wilson CIs
+                                   (*_slide.pdf: compact 4-scope variant; figure_slides.py)
 leg_d/figure_combined.*            backup: every cell, both conditions, Wilson 95% CIs
+leg_e/figure_leg_e.*               per model: baseline, with-server v0.1.1 → v0.1.2 (figure_slides.py)
 leg_d/combined_results.csv         2,520 rows, one per conversation
 leg_d/combined_summary.csv         one row per harness × model × server × condition
 leg_d/taxonomy.csv                 failure modes, headline cells
