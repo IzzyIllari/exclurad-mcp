@@ -51,6 +51,22 @@ def short_model(model: str) -> str:
     return m
 
 
+DISPLAY_NAME = {  # figure labels only; tables keep the gateway model id
+    "NVIDIA-Nemotron-3-Super-120B-A12B-FP8": "Nemotron 3 Super 120B",
+    "NVIDIA-Nemotron-3-Nano-30B-A3B-BF16": "Nemotron 3 Nano 30B",
+    "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4": "Nemotron 3.5 Lightning 30B",
+    "Inkling-Small-NVFP4": "Inkling Small",
+    "Laguna-S-2.1-NVFP4": "Laguna S 2.1",
+    "Mistral-Medium-3.5-128B": "Mistral Medium 3.5 128B",
+    "Muse-Glimmer-30B": "Muse Glimmer 30B",
+}
+
+
+def display_name(model: str) -> str:
+    m = short_model(model)
+    return DISPLAY_NAME.get(m, m)
+
+
 def server_version(prov: dict) -> str:
     inst = prov.get("server_installed") or {}
     if inst.get("version"):
@@ -141,21 +157,33 @@ def pct(k, n):
     return f"{100 * k / n:.0f}%" if n else "-"
 
 
+def newest_cells(summary: list[dict]) -> list[tuple]:
+    """(harness, model, with-server row, baseline row) for every harness×model
+    that has both conditions, each condition at its newest server version.
+    Baselines are never re-run across server versions (they do not touch the
+    server), so the two rows of a cell may carry different versions."""
+    by: dict[tuple, dict] = {}
+    for srow in summary:
+        key = (srow["harness"], srow["model"], srow["condition"])
+        if key not in by or version_key(srow["server"]) > version_key(by[key]["server"]):
+            by[key] = srow
+    cells = []
+    for h, m in sorted({(k[0], k[1]) for k in by}):
+        w, b = by.get((h, m, "with-server")), by.get((h, m, "baseline"))
+        if w and b:
+            cells.append((h, m, w, b))
+    cells.sort(key=lambda c: (list(HARNESS_LABEL).index(c[0]), -c[2]["pass_rate"], -c[3]["pass_rate"]))
+    return cells
+
+
 def main_table(summary: list[dict]) -> str:
-    by = {(s["harness"], s["model"], s["server"], s["condition"]): s for s in summary}
-    cells = sorted({(s["harness"], s["model"], s["server"]) for s in summary},
-                   key=lambda k: (list(HARNESS_LABEL).index(k[0]),
-                                  -by.get((k[0], k[1], k[2], "with-server"), {}).get("pass_rate", 0)))
-    lines = ["| harness | model | server | with-server | baseline | Δ | pass^k with / base | "
+    lines = ["| harness | model | server with / base | with-server | baseline | Δ | pass^k with / base | "
              "ill-posed catch with / base | false refusal with / base | median wall with / base |",
              "|---|---|---|---|---|---|---|---|---|---|"]
-    for h, m, s in cells:
-        w, b = by.get((h, m, s, "with-server")), by.get((h, m, s, "baseline"))
-        if not (w and b):
-            continue
+    for h, m, w, b in newest_cells(summary):
         delta = 100 * (w["pass_rate"] - b["pass_rate"])
         lines.append(
-            f"| {HARNESS_LABEL[h]} | {short_model(m)} | v{s} "
+            f"| {HARNESS_LABEL[h]} | {short_model(m)} | v{w['server']} / v{b['server']} "
             f"| {fmt_ci(w['passed'], w['n'])} | {fmt_ci(b['passed'], b['n'])} | {delta:+.0f} pp "
             f"| {pct(w['pass_all_k_n'], w['n_tasks'])} / {pct(b['pass_all_k_n'], b['n_tasks'])} "
             f"| {w['ill_posed_catch']}/{w['ill_posed_n']} / {b['ill_posed_catch']}/{b['ill_posed_n']} "
@@ -342,13 +370,9 @@ def make_figure(summary: list[dict], out_png: Path, out_csv: Path) -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    by = {(s["harness"], s["model"], s["server"], s["condition"]): s for s in summary}
-    cells = sorted({(s["harness"], s["model"], s["server"]) for s in summary
-                    if (s["harness"], s["model"], s["server"], "with-server") in by
-                    and (s["harness"], s["model"], s["server"], "baseline") in by},
-                   key=lambda k: (list(HARNESS_LABEL).index(k[0]),
-                                  by[(k[0], k[1], k[2], "with-server")]["pass_rate"],
-                                  by[(k[0], k[1], k[2], "baseline")]["pass_rate"]))
+    # lowest pass rate at the bottom within each harness block
+    cells = sorted(newest_cells(summary),
+                   key=lambda c: (list(HARNESS_LABEL).index(c[0]), c[2]["pass_rate"], c[3]["pass_rate"]))
     fig_rows = []
     labels, y = [], []
     fig_h = max(3.0, 0.42 * len(cells) + 1.6)
@@ -357,23 +381,23 @@ def make_figure(summary: list[dict], out_png: Path, out_csv: Path) -> None:
     off = {"baseline": -0.18, "with-server": +0.18}
     ypos = 0
     last_h = None
-    for h, m, s in cells:
+    for h, m, wrow, brow in cells:
         if last_h is not None and h != last_h:
             ypos += 0.6
         last_h = h
-        for c in CONDITIONS:
-            r = by[(h, m, s, c)]
+        for c, r in (("with-server", wrow), ("baseline", brow)):
+            s = r["server"]
             p, lo, hi = r["pass_rate"], r["ci_lo"], r["ci_hi"]
             ax.barh(ypos + off[c], 100 * p, height=0.34, color=colour[c],
                     hatch="//" if c == "with-server" else None, edgecolor="white", linewidth=0.8,
-                    label=c if (h, m, s) == cells[0] else None)
+                    label=c if (h, m) == cells[0][:2] else None)
             ax.errorbar(100 * p, ypos + off[c], xerr=[[100 * (p - lo)], [100 * (hi - p)]],
                         fmt="none", ecolor="#333333", elinewidth=1, capsize=2)
             fig_rows.append({"harness": HARNESS_LABEL[h], "model": short_model(m), "server": s,
                              "condition": c, "n": r["n"], "passed": r["passed"],
                              "pass_rate_pct": round(100 * p, 1),
                              "ci_lo_pct": round(100 * lo, 1), "ci_hi_pct": round(100 * hi, 1)})
-        labels.append(f"{short_model(m)}  ({HARNESS_LABEL[h]})")
+        labels.append(f"{display_name(m)}  ({HARNESS_LABEL[h]})")
         y.append(ypos)
         ypos += 1
     ax.set_yticks(y)
@@ -385,7 +409,7 @@ def make_figure(summary: list[dict], out_png: Path, out_csv: Path) -> None:
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), ncol=2, fontsize=8, frameon=False)
-    ax.set_title("Agent accuracy with and without the EXCLURAD MCP server", fontsize=10)
+    ax.set_title("Agent accuracy with and without the EXCLURAD MCP server", fontsize=10, loc="left")
     fig.tight_layout()
     fig.savefig(out_png, dpi=200)
     write_csv(out_csv, fig_rows)
@@ -422,7 +446,7 @@ def main() -> None:
         "## Pooled", "", pooled_table(head), "",
         "## By task class", "", class_table(head), "",
         "## Same model, different harness", "", harness_effect_table(head), "",
-        "## Server v0.1.0 → v0.1.1 (cells run on both)", "", before_after_table(head, old), "",
+        "## Server version before → after (with-server cells run on more than one version)", "", before_after_table(head, old), "",
         "## What you have to know about the code (per-quirk pass counts, headline cells pooled)", "",
         quirk_table(head), "",
         "## Cost and tokens per cell", "", cost_table(summary), "",

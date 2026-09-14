@@ -107,17 +107,21 @@ byte validation, refusals happen where physics demands them.
 the server and diverge without it, correctness lives in the tooling, not
 the model.
 
-**Status (2026-09-10).** Suite v1 (15 tasks, `suite_sha256
-21ee515822f1c51b…`) and harness done. **2,998 scored conversations across 24
-run directories**, three harnesses (Claude Code, OpenCode, Codex), 15 models,
-two server versions. Full map, per-arm results and open items:
-**`benchmarks/LEG_D_RESULTS.md`**.
+**Status (2026-09-14).** Suite v1 (15 tasks, `suite_sha256
+21ee515822f1c51b…`) and harness done. **2,520 scored leg D conversations**
+across three harnesses (Claude Code, OpenCode, Codex), 15 models and three
+server versions, plus 270 leg E (end-to-end) conversations. The combined
+cross-harness report, the slide figures and the "For the DNP slide" section
+are in **`benchmarks/2026-09-14-combined-report/README.md`**; the arm-by-arm
+map with per-arm caveats is **`benchmarks/LEG_D_RESULTS.md`**.
 
 The headline is that **the server's value is inversely proportional to model
-capability**: frontier models gain +16 to +18 points, open models up to +60
-(NVIDIA Nemotron 3 Super 120B goes 40% → 100%). That matters more than "it
-helps", because most people who would run this server do not have frontier
-API access.
+capability**: frontier models gain +11 to +20 points, open-weight models up to
++58 (NVIDIA Nemotron 3 Nano 30B goes 31% → 89%, Nemotron 3 Super 120B 40% →
+96%). That matters more than "it helps", because most people who would run
+this server do not have frontier API access. Pooled over the 18 harness ×
+model cells, with-server 85% (692/810) against baseline 66% (538/810); no
+model falsely refused a well-posed request with the server (0/270).
 
 Two results qualify what the study can claim. The v0.1.2 fix to the
 `q2_positive` validator suggestion took ip-04 from 0/9 to 8/9 with-server
@@ -136,6 +140,28 @@ surfaced the first validator wording defect (|cos θ*| > 1 reported with the
 pole message) that made both models clamp an impossible cosine. That defect
 and the `q2_positive` one are the same failure mode, found twice.
 
+## Leg E: end-to-end (agent runs the code)
+
+**Question.** Leg D stops at the input file. Leg E asks whether an agent can
+run EXCLURAD on a point and report the numbers a recorded October-2025
+campaign row contains: δ, σ_Born, and the right behaviour at a NaN point and
+at a below-threshold point. Protocol: `benchmarks/agent_tasks/PROTOCOL-E.md`;
+suite `tasks_e2e.json` (6 η tasks); scorer `score_e2e_run.py`.
+
+**Status (2026-09-14).** 270 conversations, five models on two harnesses,
+servers v0.1.1 and v0.1.2. On v0.1.2 every model is 18/18 with the server
+(90/90). Both with-server failure modes seen on v0.1.1 were interface
+defects, and both were measured to disappear when the tool interface stopped
+inviting them: Haiku 4.5 assumed a 10.6 GeV beam (3 → 0 once `generate_input`
+echoed its settings and named the campaign energies) and gpt-5.6-luna passed
+`rc_mode=1`, the leading-log approximation, when asked for an exact
+correction (11 → 0 once the parameter took `"full"`/`"leading_log"` instead of
+0/1). The leading-log substitution is a 7% error in δ on the reference point
+(0.8493 vs 0.9160) and removes the radiative correction to the beam-spin
+asymmetry entirely. Baseline agents that succeed do so at 3–4× the cost and
+2–5× the wall time; their failures are reading the wrong output column or
+rounding the reported number.
+
 ## Current status summary
 
 | Leg | Needs LLM | Blocked on anything? |
@@ -143,4 +169,5 @@ and the `q2_positive` one are the same failure mode, found twice.
 | A: η regression | no | no (patched-build addendum waits on guard sign-off) |
 | B: π⁺ closure | no | no (needs one-time plot digitization) |
 | C: seeded failure detection | no | no |
-| D: agent accuracy | yes | no (2,998 conversations run; open items are the ablation spec and the `flags` dilution — see `benchmarks/LEG_D_RESULTS.md`) |
+| D: agent accuracy | yes | no (2,520 conversations; combined report in `benchmarks/2026-09-14-combined-report/`; ablation specified in `PROTOCOL-ABLATION.md`, not run) |
+| E: end-to-end | yes | no (270 conversations; 90/90 on server v0.1.2; report in the same combined directory) |

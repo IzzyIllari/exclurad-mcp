@@ -175,8 +175,10 @@ available in both conditions and `run_exclurad` cannot be removed per tool.
    Codex specifically**, since that is the only harness where the strings
    demonstrably drive behaviour.
 2. **The `flags` dilution** (claim 3) — a `server.py` change, not made here.
-3. **The combined multi-harness report** — in progress separately. When it
-   pools arms, the denominator warning above and the "Codex is never pooled"
-   rule both apply.
+3. **The combined multi-harness report** — DONE 2026-09-14:
+   `2026-09-14-combined-report/` (leg D tables, leg E tables, slide figures,
+   README with the DNP slide section). It keeps Codex in its own rows and
+   states every denominator; the terra laptop replication is cited, not
+   pooled.
 4. **Dropped deliberately:** the gpt-oss-20b append (least valuable remaining),
    and re-running the quota-killed sol/luna cells.
